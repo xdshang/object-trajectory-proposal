@@ -95,3 +95,42 @@ def push_heap(heap, item, max_size = 3000):
     heapq.heappush(heap, item)
   else:
     heapq.heappushpop(heap, item)
+
+def get_vinds(fname, batch_size, batch_id):  
+  vinds = []
+  vals = []
+  with open(fname, 'r') as fin:
+    for line in fin:
+      line = line.split()
+      vinds.append(line[0])
+      vals.append(int(line[1]))
+
+  if batch_size * 10 < len(vinds):
+    print 'Computing division for clusters...'
+    csum = np.cumsum([0] + vals)
+    thres = float(csum[-1]) / batch_size
+    ps = [0]
+    for i in range(1, len(vals) + 1):
+      if csum[i] - csum[ps[-1]] > thres * 1.1:
+        ps.append(i - 1)
+      elif csum[i] - csum[ps[-1]] > thres:
+        ps.append(i)
+    ps.append(len(vals))
+
+    sums = []
+    for i in range(batch_size):
+      start_id = ps[i]
+      end_id = ps[i + 1] - 1
+      sums.append(csum[end_id + 1] - csum[start_id])
+    assert float(np.max(sums) - np.percentile(sums, 20)) / thres < 0.1, \
+        'Data are not distributed evenly. Please redistribute the data!'
+
+    start_id = ps[batch_id - 1]
+    end_id = ps[batch_id] - 1
+  else:
+    batch_num = (len(vinds) - 1) / batch_size + 1
+    start_id = (batch_id - 1) * batch_num
+    end_id = min(batch_id * batch_num - 1, len(vinds)) 
+
+  print 'Processing from %d to %d...' % (start_id, end_id)
+  return vinds[start_id: end_id + 1]

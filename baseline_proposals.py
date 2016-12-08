@@ -53,22 +53,6 @@ def generate_proposals(vind, nreturn, baseline, vsize = 240, working_root = '.')
   return tracks, scale
 
 
-def get_vinds(fname):  
-  vinds = []
-  with open(fname, 'r') as fin:
-    for line in fin:
-      vinds.append(line.split()[0])
-
-  batch_num = int(sys.argv[2])
-  batch_id = int(sys.argv[3])
-  batch_size = (len(vinds) - 1) / batch_num + 1
-  start_id = (batch_id - 1) * batch_size
-  end_id = min(batch_id * batch_size - 1, len(vinds))
-  print 'Processing from %d to %d...' % (start_id, end_id)
-  
-  return vinds[start_id: end_id + 1]
-
-
 if __name__ == '__main__':
   working_root = '../'
   baseline = sys.argv[1]
@@ -76,7 +60,7 @@ if __name__ == '__main__':
 
   assert os.path.exists(os.path.join(working_root, '%s_results' % baseline)), \
       'Directory for results of %s not found' % baseline
-  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'))
+  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[2]), int(sys.argv[3]))
 
   for i, vind in enumerate(vinds):
     print 'Processing %dth video...' % i
