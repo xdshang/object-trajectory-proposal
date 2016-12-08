@@ -75,8 +75,8 @@ class MovingTrack(Track):
       self.cnt_invis = self.max_invis
       return None
     
-  def update(self, frame, bbox, reverse = False):
-    assert self.start(frame, bbox), \
+  def update(self, bbox, frame, reverse = False):
+    assert self.start(bbox, frame), \
         'Error: failed to update a tracker for %s %s' % (self.pend, bbox)
     if reverse:
       self.rois[0] = bbox

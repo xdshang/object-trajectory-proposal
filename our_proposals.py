@@ -34,6 +34,7 @@ def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
         old_bbox = truncate_bbox(track.rois[-2], h, w)
         local_inds = np.asarray(np.where(old_mask[old_bbox[1]: old_bbox[1] + old_bbox[3], 
                               old_bbox[0]: old_bbox[0] + old_bbox[2]]))
+      # TODO: apply segmentation coverage check
       if track.is_alive(valid_bbox):  
         # mark potential foreground
         global_inds = local_inds + np.asarray([[old_bbox[1] + track.rois[-1][1] - track.rois[-2][1]], 
@@ -62,12 +63,12 @@ def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
             if iou > max_iou:
               max_iou = iou
               max_iou_track = track
-          # TODO: appearance matching
+          # TODO: appearance matching, smaller iou threshold
           if max_iou > 0.7:
-            max_iou_track.update(frame, bbox)
+            max_iou_track.update(bbox, frame)
           elif overlap_motion:
             # overlap either with exsiting tracks or the motion clue at current frame
-            tracks.append(MovingTrack(ind, frame, bbox, bfilter))
+            tracks.append(MovingTrack(ind, bbox, frame, bfilter))
     if verbose and ind % verbose == 0:
       print 'Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks))
   if verbose:
@@ -76,7 +77,8 @@ def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
     track.predict(frames[-1])
     track.start(track.rois[0], frames[track.pstart])
     for ind in range(track.pstart - 1, -1, -1):
-      if not track.predict(frames[ind], reverse = True):
+      bbox = track.predict(frames[ind], reverse = True)
+      if not track.is_alive(bbox and bfilter(bbox)):
         break
     track.terminate()
   return tracks
@@ -169,8 +171,8 @@ if __name__ == '__main__':
     tracks = mtracks + stracks[:(nreturn - len(mtracks))]
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     results = evaluate_track(tracks, gt_tracks)
-    with open(os.path.join(working_root, 'results', '%s.txt' % vind), 'w') as fout:
+    with open(os.path.join(working_root, 'our_results', '%s.txt' % vind), 'w') as fout:
       for gt_id, result in results.iteritems():
         print >> fout, 'gt %d matches track %s with score %f' % (gt_id, result[0], result[1])
 
-  embed()
+  # embed()
