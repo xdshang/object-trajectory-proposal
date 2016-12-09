@@ -98,39 +98,32 @@ def push_heap(heap, item, max_size = 3000):
 
 def get_vinds(fname, batch_size, batch_id):  
   vinds = []
-  vals = []
   with open(fname, 'r') as fin:
     for line in fin:
       line = line.split()
-      vinds.append(line[0])
-      vals.append(int(line[1]))
+      vinds.append((line[0], int(line[1])))
 
   if batch_size * 10 < len(vinds):
     print 'Computing division for clusters...'
-    csum = np.cumsum([0] + vals)
-    thres = float(csum[-1]) / batch_size
-    ps = [0]
-    for i in range(1, len(vals) + 1):
-      if csum[i] - csum[ps[-1]] > thres * 1.1:
-        ps.append(i - 1)
-      elif csum[i] - csum[ps[-1]] > thres:
-        ps.append(i)
-    ps.append(len(vals))
-
-    sums = []
+    vinds = sorted(vinds, key = lambda x: (x[1], x[0]), reverse = True)
+    batches = []
     for i in range(batch_size):
-      start_id = ps[i]
-      end_id = ps[i + 1] - 1
-      sums.append(csum[end_id + 1] - csum[start_id])
-    assert float(np.max(sums) - np.percentile(sums, 20)) / thres < 0.1, \
-        'Data are not distributed evenly. Please redistribute the data!'
+      batches.append([[], 0])
+    for vind in vinds:
+      min_ind = -1
+      min_val = 100000
+      for i in range(batch_size):
+        if batches[i][1] < min_val:
+          min_val = batches[i][1]
+          min_ind = i
+      batches[min_ind][1] += vind[1]
+      batches[min_ind][0].append(vind)
 
-    start_id = ps[batch_id - 1]
-    end_id = ps[batch_id] - 1
+    return [vind for vind, _ in
+        sorted(batches[batch_id - 1][0], key = lambda x: (x[1], x[0]))]
   else:
     batch_num = (len(vinds) - 1) / batch_size + 1
     start_id = (batch_id - 1) * batch_num
     end_id = min(batch_id * batch_num - 1, len(vinds)) 
-
-  print 'Processing from %d to %d...' % (start_id, end_id)
-  return vinds[start_id: end_id + 1]
+    print 'Processing from %d to %d...' % (start_id, end_id)
+    return vinds[start_id: end_id + 1]
