@@ -172,7 +172,10 @@ if __name__ == '__main__':
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     results = evaluate_track(tracks, gt_tracks)
     with open(os.path.join(working_root, 'our_results', '%s.txt' % vind), 'w') as fout:
+      ss = 0.
       for gt_id, result in results.iteritems():
+        ss += result[1]
         print >> fout, 'gt %d matches track %s with score %f' % (gt_id, result[0], result[1])
+      print >> fout, 'average score %f' % (ss / len(results),)
 
   # embed()
