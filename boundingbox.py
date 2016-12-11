@@ -18,11 +18,17 @@ class BBoxFilter(object):
 
 
 def truncate_bbox(bbox, h, w):
-  cmin = np.clip(bbox[0], 0, w)
-  cmax = np.clip(bbox[0] + bbox[2], 0, w)
-  rmin = np.clip(bbox[1], 0, h)
-  rmax = np.clip(bbox[1] + bbox[3], 0, h)
-  return int(cmin), int(rmin), int(cmax - cmin), int(rmax - rmin)
+  cmin = np.clip(bbox[0], 0, w - 1)
+  cmax = np.clip(bbox[0] + bbox[2], 0, w - 1)
+  rmin = np.clip(bbox[1], 0, h - 1)
+  rmax = np.clip(bbox[1] + bbox[3], 0, h - 1)
+  # return int(cmin), int(rmin), int(cmax - cmin), int(rmax - rmin)
+  return cmin, rmin, cmax - cmin, rmax - rmin
+
+
+def round_bbox(bbox):
+  bbox = np.floor(bbox).astype(np.int32)
+  return tuple(bbox)
 
 
 def compute_bbox(bimg):

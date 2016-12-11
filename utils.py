@@ -126,4 +126,4 @@ def get_vinds(fname, batch_size, batch_id):
     start_id = (batch_id - 1) * batch_num
     end_id = min(batch_id * batch_num - 1, len(vinds)) 
     print 'Processing from %d to %d...' % (start_id, end_id)
-    return vinds[start_id: end_id + 1]
+    return [vind for vind, _ in vinds[start_id: end_id + 1]]

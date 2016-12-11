@@ -32,6 +32,7 @@ def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
       valid_bbox = bbox and bfilter(bbox)
       if valid_bbox:
         old_bbox = truncate_bbox(track.rois[-2], h, w)
+        old_bbox = round_bbox(old_bbox)
         local_inds = np.asarray(np.where(old_mask[old_bbox[1]: old_bbox[1] + old_bbox[3], 
                               old_bbox[0]: old_bbox[0] + old_bbox[2]]))
       # TODO: apply segmentation coverage check
@@ -108,7 +109,8 @@ def generate_static_object_trajectory(flows, masks, bbs, nreturn = 1000, verbose
     active_tracks.clear()
     for ind, tracks in matches.iteritems():
       heapq.heapify(tracks)
-      tracks[0][1].update(tuple(bboxes[ind, :]), score = scores[ind])
+      # tracks[0][1].update(tuple(bboxes[ind, :]), score = scores[ind])
+      tracks[0][1].update(tracks[0][1].rois[-1], score = scores[ind])
       active_tracks.add(tracks[0][1])
       for _, track in tracks[1:]:
         track.terminate()
@@ -157,21 +159,22 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
 
 if __name__ == '__main__':
   working_root = '../'
+  saving_root = sys.argv[1]
   nreturn = 2000
 
-  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[1]), int(sys.argv[2]))
+  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[2]), int(sys.argv[3]))
 
   for i, vind in enumerate(vinds):
     print 'Processing %dth video...' % i
 
     mtracks, stracks, scale = generate_proposals(vind, nreturn, working_root = working_root)
-    with open(os.path.join(working_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:
+    with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:
       pickle.dump({'mtracks': mtracks, 'stracks': stracks, 'scale': scale}, fout)
 
     tracks = mtracks + stracks[:(nreturn - len(mtracks))]
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     results = evaluate_track(tracks, gt_tracks)
-    with open(os.path.join(working_root, 'our_results', '%s.txt' % vind), 'w') as fout:
+    with open(os.path.join(saving_root, 'our_results', '%s.txt' % vind), 'w') as fout:
       ss = 0.
       for gt_id, result in results.iteritems():
         ss += result[1]

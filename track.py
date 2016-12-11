@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from collections import deque
-from boundingbox import truncate_bbox
+from boundingbox import truncate_bbox, round_bbox
 
 class Track(object):
 
@@ -102,17 +102,15 @@ class StaticTrack(Track):
   def predict(self, flow, reverse = False):
     curr_bbox = self.rois[0] if reverse else self.rois[-1]
     curr_bbox = truncate_bbox(curr_bbox, flow.shape[0], flow.shape[1])
-    corners = [[curr_bbox[0], curr_bbox[1]], 
-           [curr_bbox[0] + curr_bbox[2], curr_bbox[1]], 
-           [curr_bbox[0], curr_bbox[1] + curr_bbox[3]], 
-           [curr_bbox[0] + curr_bbox[2], curr_bbox[1] + curr_bbox[3]]]
-    corners = np.asarray(corners, dtype = np.int32)
-    delta = flow[corners[:, 1], corners[:, 0]]
-    new_corners = delta + corners
-    cmin = (new_corners[0, 0] + new_corners[2, 0]) / 2
-    cmax = (new_corners[1, 0] + new_corners[3, 0]) / 2
-    rmin = (new_corners[0, 1] + new_corners[1, 1]) / 2
-    rmax = (new_corners[2, 1] + new_corners[3, 1]) / 2
+    rcb = round_bbox(curr_bbox)
+    cmin = np.median(flow[rcb[1]: rcb[1] + rcb[3] + 1, rcb[0], 0]) \
+        + curr_bbox[0]
+    cmax = np.median(flow[rcb[1]: rcb[1] + rcb[3] + 1, rcb[0] + rcb[2], 0]) \
+        + curr_bbox[0] + curr_bbox[2]
+    rmin = np.median(flow[rcb[1], rcb[0]: rcb[0] + rcb[2] + 1, 1]) \
+        + curr_bbox[1]
+    rmax = np.median(flow[rcb[1] + rcb[3], rcb[0]: rcb[0] + rcb[2] + 1, 1]) \
+        + curr_bbox[1] + curr_bbox[3]
     w = cmax - cmin
     h = rmax - rmin
     if w < 0:
