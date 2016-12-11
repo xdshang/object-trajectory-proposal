@@ -12,8 +12,10 @@ from boundingbox import *
 from evaluate import *
 from utils import *
 
+VIS_MODE = True
+
 @profile
-def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
+def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
   h, w = frames[0].shape[:2]
   tracks = []
   bgdModel = np.empty((1, 65), dtype = np.float64)
@@ -24,6 +26,12 @@ def generate_moving_object_trajectory(frames, masks, bfilter, verbose = 0):
     frame = frames[ind]
     motion = masks[ind][1] > 0
     old_mask[...] = mask & 1
+    if not segment is None:
+      _seg = np.zeros_like(frames[0])
+      _seg[...] = [[[196, 144, 68]]]
+      _seg[old_mask > 0, :] = [[[0, 192, 255]]]
+      _seg[motion, :] = [[[0, 0, 255]]]
+      segment.append(_seg)
     mask[...] = cv2.GC_PR_BGD
     active_tracks = []
     # predict new locations for existing tracks
@@ -134,6 +142,8 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
   frames, fps, orig_size = extract_frames(os.path.join(working_root, 
       'snippets/' + vind + '.mp4'))
   frames = resize_frames(frames, vsize)
+  if VIS_MODE:
+    create_video_frames('../tracks/%s' % vind, frames)
   size = frames[0].shape[1], frames[0].shape[0]
   scale = float(size[0]) / orig_size[0]
   print '\tname: %s, fps: %d size: %dx%dx%d' % \
@@ -143,10 +153,19 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
   if not os.path.exists(intermediate):
     intermediate = None
   flows, masks = background_motion(frames, intermediate)
+  if VIS_MODE:
+    create_video_frames('../tracks/%s_optflow' % vind, draw_hsv(flows))
+    create_video_frames('../tracks/%s_mask' % vind, 
+        [(mask > 0).astype(np.uint8) * 255 for n, mask in masks])
   
   bfilter = BBoxFilter(size[0] * size[1] * 0.001, size[0] * size[1] * 0.3, 0.1)
-  mtracks = generate_moving_object_trajectory(frames, masks, bfilter, verbose = 20)
-  
+  if VIS_MODE:
+    segment = []
+    mtracks = generate_moving_object_trajectory(frames, masks, bfilter, segment = segment, verbose = 20)
+    create_video_frames('../tracks/%s_segment' % vind, segment)
+  else:
+    mtracks = generate_moving_object_trajectory(frames, masks, bfilter, verbose = 20)
+
   bbs = sio.loadmat(glob.glob('%s/edgebox50_proposals/*/%s*' % \
       (working_root, vind))[0])['bbs']
   for i in range(bbs.shape[0]):
@@ -161,6 +180,9 @@ if __name__ == '__main__':
   working_root = '../'
   saving_root = sys.argv[1]
   nreturn = 2000
+
+  if VIS_MODE:
+    print 'WARNING: visualization mode!'
 
   vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[2]), int(sys.argv[3]))
 

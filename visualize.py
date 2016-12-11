@@ -1,5 +1,6 @@
 import numpy as np
 import h5py
+import pickle
 import os, sys
 import matplotlib.pyplot as plt
 import skimage.io as skio
@@ -9,7 +10,21 @@ from boundingbox import *
 from utils import *
 from IPython import embed
 
-class StaticTrack_v2(StaticTrack):
+colors = ((255, 0, 0),
+          (0, 255, 0),
+          (0, 0, 255),
+          (255, 255, 0),
+          (255, 0, 255),
+          (0, 255, 255),
+          (255, 128, 0),
+          (255, 0, 128),
+          (128, 255, 0),
+          (128, 0, 255),
+          (0, 128, 255),
+          (255, 0, 128),
+          (0, 255, 128))
+
+class StaticTrack_v0(StaticTrack):
     
   def predict(self, flow, reverse = False):
     curr_bbox = self.rois[0] if reverse else self.rois[-1]
@@ -44,18 +59,33 @@ class StaticTrack_v2(StaticTrack):
     return bbox
 
 
-def track_bbox_by_optflow(track, frames, flows, masks, color = (0, 0, 255)):
-  h, w = frames[0].shape[0], frames[0].shape[1]
-  for i in range(1, len(frames)):
-    masked_flow = flows[i - 1] * (masks[i - 1][1] == 0)[:, :, None]
+def track_bbox_by_optflow(track, flows, masks):
+  h, w = flows[0].shape[0], flows[0].shape[1]
+  for i in range(len(flows)):
+    masked_flow = flows[i] * (masks[i][1] == 0)[:, :, None]
     bbox = track.predict(masked_flow)
-    bbox = truncate_bbox(bbox, h, w)
-    frames[i] = draw_bboxes(frames[i], [bbox], color)
+    
+
+def draw_results(frames, tracks, output_dir, output_video = True, fps = None):
+  for i in range(len(frames)):
+    for j in range(len(tracks)):
+      frames[i] = draw_tracks(i, frames, [tracks[j]], 
+          color = colors[j % len(colors)])
+  if output_video:
+    create_video(output_dir, frames, fps, 
+        (frames[0].shape[1], frames[0].shape[0]), True)
+  else:
+    create_video_frames(output_dir, frames)
 
 
 if __name__ == '__main__':
   working_root = '../'
   vind = sys.argv[1]
+  if sys.argv[0] > 1:
+    result_dir = sys.argv[2]
+  else:
+    result_dir = None
+
   # load video frames
   frames, fps, _ = extract_frames(os.path.join(working_root, 
       'snippets', '%s.mp4' % vind))
@@ -64,15 +94,33 @@ if __name__ == '__main__':
   flows, masks = background_motion(frames, os.path.join(working_root, 
       'intermediate', '%s.h5' % vind))
 
-  bbox_init = (190.0, 110, 100, 80)
+  if result_dir:
+    with open(os.path.join(result_dir, '%s.pkl' % vind), 'r') as fin:
+      data = pickle.load(fin)
+      if data.has_key('tracks'):
+        tracks = data['tracks']
+      else:
+        tracks = data['mtracks'] + data['stracks']
+        moving_part = len(data['mtracks'])
+    hit_tracks = []
+    with open(os.path.join(result_dir, '%s.txt' % vind), 'r') as fin:
+      for line in fin:
+        line = line.split()
+        if line[0] == 'gt':
+          try:
+            tind = int(line[4])
+            # if not tind < moving_part:
+            hit_tracks.append(tracks[tind])
+          except ValueError:
+            pass
+    tracks = hit_tracks
+  else:
+    bbox_init = (190.0, 110, 100, 80)
+    track = StaticTrack(0, bbox_init, 0)
+    track_bbox_by_optflow(track, flows, masks)
+    tracks = [track]
 
-  track = StaticTrack(0, bbox_init, 0)
-  track_bbox_by_optflow(track, frames, flows, masks, color = ((0, 255, 0)))
-
-  track = StaticTrack_v2(0, bbox_init, 0)
-  track_bbox_by_optflow(track, frames, flows, masks, color = ((0, 0, 255)))
-
-  create_video(os.path.join(working_root, 'tracks', vind),
-      frames, fps, (frames[0].shape[1], frames[0].shape[0]), True)
+  draw_results(frames, tracks, os.path.join(working_root, 'tracks', vind), 
+      output_video = True, fps = fps)
 
   # embed()

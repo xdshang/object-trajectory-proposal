@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import heapq
 import time
+import os
 
 def profile(func):
   def wrap(*args, **kwargs):
@@ -56,18 +57,42 @@ def create_video(fname, frames, fps, size, isColor):
   out.release()
 
 
+def create_video_frames(fname, frames):
+  try:
+    os.mkdir(fname)
+  except OSError:
+    pass
+  for i, frame in enumerate(frames):
+    cv2.imwrite(os.path.join(fname, '%05d.jpg' % (i + 1,)), frame)
+
+
 def draw_hsv(flow):
-  argnan = np.isnan(flow[..., 0])
-  mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-  hsv = np.zeros((flow.shape[0], flow.shape[1], 3), np.uint8)
-  hsv[...,0] = ang * 180 / np.pi / 2
-  hsv[...,1] = 255
-  min_val = np.nanmin(mag)
-  max_val = np.nanmax(mag)
-  hsv[...,2] = (mag - min_val) / (max_val - min_val) * 255
-  bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-  bgr[argnan, :] = 0
-  return bgr
+  if isinstance(flow, list):
+    mags = [cv2.cartToPolar(f[...,0], f[...,1])[0] for f in flow]
+    min_val = np.min(mags)
+    max_val = np.max(mags)
+    bgrs = []
+    for f in flow:
+      mag, ang = cv2.cartToPolar(f[...,0], f[...,1])
+      hsv = np.zeros((f.shape[0], f.shape[1], 3), np.uint8)
+      hsv[...,0] = ang * 180 / np.pi / 2
+      hsv[...,1] = 255
+      hsv[...,2] = (mag - min_val) / (max_val - min_val) * 255
+      bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+      bgrs.append(bgr)
+    return bgrs
+  else:
+    argnan = np.isnan(flow[..., 0])
+    mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+    hsv = np.zeros((flow.shape[0], flow.shape[1], 3), np.uint8)
+    hsv[...,0] = ang * 180 / np.pi / 2
+    hsv[...,1] = 255
+    min_val = np.nanmin(mag)
+    max_val = np.nanmax(mag)
+    hsv[...,2] = (mag - min_val) / (max_val - min_val) * 255
+    bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    bgr[argnan, :] = 0
+    return bgr
 
 
 def draw_tracks(ind, frames, tracks, color = (255, 0, 0)):
@@ -77,7 +102,7 @@ def draw_tracks(ind, frames, tracks, color = (255, 0, 0)):
       bbox = track.rois[ind - track.pstart]
       startp = int(bbox[0]), int(bbox[1])
       endp = int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])
-      cv2.rectangle(img, startp, endp, color, 1)
+      cv2.rectangle(img, startp, endp, color, 2)
   return img
 
 
@@ -95,6 +120,7 @@ def push_heap(heap, item, max_size = 3000):
     heapq.heappush(heap, item)
   else:
     heapq.heappushpop(heap, item)
+
 
 def get_vinds(fname, batch_size, batch_id):  
   vinds = []
