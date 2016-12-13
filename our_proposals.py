@@ -2,6 +2,7 @@ import numpy as np
 from scipy import io as sio
 import cv2
 import os, sys
+import argparse
 import glob
 import pickle
 from collections import defaultdict
@@ -12,7 +13,7 @@ from boundingbox import *
 from evaluate import *
 from utils import *
 
-VIS_MODE = True
+DEBUG_MODE = False
 
 @profile
 def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
@@ -142,7 +143,7 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
   frames, fps, orig_size = extract_frames(os.path.join(working_root, 
       'snippets/' + vind + '.mp4'))
   frames = resize_frames(frames, vsize)
-  if VIS_MODE:
+  if DEBUG_MODE:
     create_video_frames('../tracks/%s' % vind, frames)
   size = frames[0].shape[1], frames[0].shape[0]
   scale = float(size[0]) / orig_size[0]
@@ -153,13 +154,13 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
   if not os.path.exists(intermediate):
     intermediate = None
   flows, masks = background_motion(frames, intermediate)
-  if VIS_MODE:
+  if DEBUG_MODE:
     create_video_frames('../tracks/%s_optflow' % vind, draw_hsv(flows))
     create_video_frames('../tracks/%s_mask' % vind, 
         [(mask > 0).astype(np.uint8) * 255 for n, mask in masks])
   
   bfilter = BBoxFilter(size[0] * size[1] * 0.001, size[0] * size[1] * 0.3, 0.1)
-  if VIS_MODE:
+  if DEBUG_MODE:
     segment = []
     mtracks = generate_moving_object_trajectory(frames, masks, bfilter, segment = segment, verbose = 20)
     create_video_frames('../tracks/%s_segment' % vind, segment)
@@ -177,22 +178,42 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
 
 
 if __name__ == '__main__':
-  working_root = '../'
-  saving_root = sys.argv[1]
-  nreturn = 2000
 
-  if VIS_MODE:
+  parser = argparse.ArgumentParser(description = 'Our proposal')
+  parser.add_argument('-r', '--working_root', default = '../', help = 'working root')
+  parser.add_argument('-s', '--saving_root', required = True, help = 'saving root')
+  parser.add_argument('-n', '--nreturn', type = int, default = 2000, help = 'number of returned proposals')
+  parser.add_argument('--bsize', type = int, required = True, help = 'batch size')
+  parser.add_argument('--bid', type = int, required = True, help = 'batch id')
+  args = parser.parse_args()
+
+  working_root = args.working_root
+  saving_root = args.saving_root
+  nreturn = args.nreturn
+
+  if DEBUG_MODE:
     print 'WARNING: visualization mode!'
 
-  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[2]), int(sys.argv[3]))
+  assert os.path.exists(os.path.join(saving_root, 'our_results')), \
+      'Directory for results of ours not found'
+  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
     print 'Processing %dth video...' % i
 
-    mtracks, stracks, scale = generate_proposals(vind, nreturn, working_root = working_root)
-    with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:
-      pickle.dump({'mtracks': mtracks, 'stracks': stracks, 'scale': scale}, fout)
+    if os.path.exists(os.path.join(saving_root, 'our_results', '%s.pkl' % vind)):
+      print '\tLoading existing tracks for %s ...' % vind
+      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'r') as fin:
+        data = pickle.load(fin)
+        mtracks = data['mtracks']
+        stracks = data['stracks']
+        scale = data['scale']
+    else:
+      mtracks, stracks, scale = generate_proposals(vind, nreturn, working_root = working_root)
+      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:
+        pickle.dump({'mtracks': mtracks, 'stracks': stracks, 'scale': scale}, fout)
 
+    assert len(mtracks) + len(stracks) >= nreturn
     tracks = mtracks + stracks[:(nreturn - len(mtracks))]
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     results = evaluate_track(tracks, gt_tracks)

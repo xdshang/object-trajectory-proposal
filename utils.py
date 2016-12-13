@@ -57,13 +57,13 @@ def create_video(fname, frames, fps, size, isColor):
   out.release()
 
 
-def create_video_frames(fname, frames):
+def create_video_frames(fname, frames, ext = 'jpg'):
   try:
     os.mkdir(fname)
   except OSError:
     pass
   for i, frame in enumerate(frames):
-    cv2.imwrite(os.path.join(fname, '%05d.jpg' % (i + 1,)), frame)
+    cv2.imwrite(os.path.join(fname, '%06d.%s' % (i + 1, ext)), frame)
 
 
 def draw_hsv(flow):

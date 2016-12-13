@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import io as sio
 import os, sys
+import argparse
 import glob
 import pickle
 from IPython import embed
@@ -61,21 +62,38 @@ def generate_proposals(vind, nreturn, baseline, vsize = 240, working_root = '.')
 
 
 if __name__ == '__main__':
-  working_root = '../'
-  saving_root = sys.argv[1]
-  baseline = sys.argv[2]
-  nreturn = 2000
+
+  parser = argparse.ArgumentParser(description = 'Our proposal')
+  parser.add_argument('-r', '--working_root', default = '../', help = 'working root')
+  parser.add_argument('-s', '--saving_root', required = True, help = 'saving root')
+  parser.add_argument('-n', '--nreturn', type = int, default = 2000, help = 'number of returned proposals')
+  parser.add_argument('--baseline', required = True, help = 'baseline name')
+  parser.add_argument('--bsize', type = int, required = True, help = 'batch size')
+  parser.add_argument('--bid', type = int, required = True, help = 'batch id')
+  args = parser.parse_args()
+
+  working_root = args.working_root
+  saving_root = args.saving_root
+  nreturn = args.nreturn
+  baseline = args.baseline
 
   assert os.path.exists(os.path.join(saving_root, '%s_results' % baseline)), \
       'Directory for results of %s not found' % baseline
-  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), int(sys.argv[3]), int(sys.argv[4]))
+  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
     print 'Processing %dth video...' % i
 
-    tracks, scale = generate_proposals(vind, nreturn, baseline, working_root = working_root)
-    with open(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind), 'wb') as fout:
-      pickle.dump({'tracks': tracks, 'scale': scale}, fout)
+    if os.path.exists(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind)):
+      print '\tLoading existing tracks for %s ...' % vind
+      with open(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind), 'r') as fin:
+        data = pickle.load(fin)
+        tracks = data['tracks']
+        scale = data['scale']
+    else:
+      tracks, scale = generate_proposals(vind, nreturn, baseline, working_root = working_root)
+      with open(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind), 'wb') as fout:
+        pickle.dump({'tracks': tracks, 'scale': scale}, fout)
 
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     results = evaluate_track(tracks, gt_tracks)
