@@ -10,9 +10,9 @@ from boundingbox import *
 from utils import *
 from IPython import embed
 
-colors = ((255, 0, 0),
-          (0, 255, 0),
+colors = ((0, 255, 0),
           (0, 0, 255),
+          (255, 0, 0),
           (255, 255, 0),
           (255, 0, 255),
           (0, 255, 255),
@@ -81,7 +81,7 @@ def draw_results(frames, tracks, output_dir, output_video = True, fps = None):
 if __name__ == '__main__':
   working_root = '../'
   vind = sys.argv[1]
-  if sys.argv[0] > 1:
+  if len(sys.argv) > 2:
     result_dir = sys.argv[2]
   else:
     result_dir = None
@@ -115,12 +115,15 @@ if __name__ == '__main__':
             pass
     tracks = hit_tracks
   else:
-    bbox_init = (190.0, 110, 100, 80)
-    track = StaticTrack(0, bbox_init, 0)
-    track_bbox_by_optflow(track, flows, masks)
-    tracks = [track]
+    # bbox_init = (370.0, 10, 40, 80)
+    bbox_init = [(160., 40, 65, 40), (25., 35, 60, 50)]
+    tracks = []
+    for binit in bbox_init:
+      track = StaticTrack(0, binit, 0)
+      track_bbox_by_optflow(track, flows, masks)
+      tracks.append(track)
 
   draw_results(frames, tracks, os.path.join(working_root, 'tracks', vind), 
-      output_video = True, fps = fps)
+      output_video = False, fps = fps)
 
   # embed()
