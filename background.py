@@ -39,6 +39,33 @@ def generate_moving_mask_v2(flows_lst, var_thres = 1, area_min = 100, area_max =
   return Fs, masks
 
 
+def generate_moving_mask_v3(frame_lst, flows_lst, var_thres = 1, area_min = 100, area_max = np.inf):
+  h, w = flows_lst[0].shape[:2]
+  points1 = np.mgrid[:h, :w].reshape(2, -1).astype(np.float32).T[:, (1, 0)]
+  bgdModel = np.empty((1, 65), dtype = np.float64)
+  fgdModel = np.empty((1, 65), dtype = np.float64)
+  mask = np.empty((h, w), dtype = np.uint8)
+  Fs = []
+  masks = []
+  for frame, flow in zip(frame_lst, flows_lst):
+    points2 = points1 + flow.reshape(-1, 2)
+    F, bg = cv2.findFundamentalMat(points1, points2, cv2.FM_RANSAC, var_thres)
+    bg = bg.reshape(h, w).astype(np.bool)
+    fg = ~bg
+    if np.sum(fg) > 10:
+      mask[fg] = cv2.GC_PR_FGD
+      mask[bg] = cv2.GC_PR_BGD
+      bgdModel[...] = 0
+      fgdModel[...] = 0
+      mask, _, _ = cv2.grabCut(frame, mask, None, bgdModel, fgdModel, 1, cv2.GC_INIT_WITH_MASK)
+      components = cv2.connectedComponents((mask & 1).astype(np.uint8), ltype = cv2.CV_16U)
+      masks.append(filter_components(components, area_min, area_max))
+    else:
+      masks.append((0, np.zeros_like(fg, dtype = np.uint16)))
+    Fs.append(F)
+  return Fs, masks
+
+
 def background_motion(frames, intermediate = None):
   """
   masks: a list of (n, mask), where (mask == 0) is the background, 
@@ -50,4 +77,7 @@ def background_motion(frames, intermediate = None):
     with h5py.File(intermediate, 'r') as fin:
       flows = list(fin['/flows'][:].astype(np.float32))
   Fs, masks = generate_moving_mask_v2(flows, 1, 10, np.prod(frames[0].shape[:2]) * 0.2)
+  # Fs, masks = generate_moving_mask_v3(frames, flows, 1, 
+  #     np.prod(frames[0].shape[:2]) * 0.001, 
+  #     np.prod(frames[0].shape[:2]) * 0.2)
   return flows, masks

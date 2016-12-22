@@ -12,7 +12,7 @@ class BBoxFilter(object):
     area = bbox[2] * bbox[3]
     if area < self.min_area or area > self.max_area:
       return False
-    if float(min(bbox[2], bbox[3])) / max(bbox[2], bbox[3]) < self.min_ratio:
+    if min(bbox[2], bbox[3]) / max(bbox[2], bbox[3]) < self.min_ratio:
       return False
     return True
 

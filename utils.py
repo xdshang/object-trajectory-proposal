@@ -8,7 +8,7 @@ def profile(func):
   def wrap(*args, **kwargs):
     started_at = time.time()
     result = func(*args, **kwargs)
-    print '\t%s comsumed %.1fs' % (func.__name__, time.time() - started_at)
+    print('\t%s comsumed %.1fs' % (func.__name__, time.time() - started_at))
     return result
   return wrap
 
@@ -30,7 +30,7 @@ def extract_frames(fname):
 def resize_frames(frames, vsize = 240):
   frame_shape = frames[0].shape
   if frame_shape[0] > vsize:
-    flow_size = vsize, int(round(vsize * frame_shape[1] / frame_shape[0]))
+    flow_size = vsize, int(vsize * frame_shape[1] / frame_shape[0])
   else:
     flow_size = frame_shape
   flow_size = flow_size[1], flow_size[0]
@@ -130,7 +130,7 @@ def get_vinds(fname, batch_size, batch_id):
       vinds.append((line[0], int(line[1])))
 
   if batch_size * 10 < len(vinds):
-    print 'Computing division for clusters...'
+    print('Computing division for clusters...')
     vinds = sorted(vinds, key = lambda x: (x[1], x[0]), reverse = True)
     batches = []
     for i in range(batch_size):
@@ -148,8 +148,8 @@ def get_vinds(fname, batch_size, batch_id):
     return [vind for vind, _ in
         sorted(batches[batch_id - 1][0], key = lambda x: (x[1], x[0]))]
   else:
-    batch_num = (len(vinds) - 1) / batch_size + 1
+    batch_num = (len(vinds) - 1) // batch_size + 1
     start_id = (batch_id - 1) * batch_num
     end_id = min(batch_id * batch_num - 1, len(vinds)) 
-    print 'Processing from %d to %d...' % (start_id, end_id)
+    print('Processing from %d to %d...' % (start_id, end_id))
     return [vind for vind, _ in vinds[start_id: end_id + 1]]

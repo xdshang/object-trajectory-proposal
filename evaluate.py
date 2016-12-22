@@ -28,11 +28,11 @@ def get_gt_tracks(fname, scale = 1.):
 
 
 def evaluate_track(tracks, gts, iou_thres = 0.5):
-  res = dict([(gt_id, [None, 0]) for gt_id in gts.iterkeys()])
+  res = dict([(gt_id, [None, 0]) for gt_id in gts.keys()])
   for track_id, track in enumerate(tracks):
     max_ind = -1
     max_score = 0
-    for gt_id, gt_track in gts.iteritems():
+    for gt_id, gt_track in gts.items():
       cnt = 0.
       ignore = 0
       pstart = max(gt_track.pstart, track.pstart)
@@ -55,11 +55,11 @@ def evaluate_track(tracks, gts, iou_thres = 0.5):
   return res
 
 def evaluate_track_curve(tracks, gts, iou_thres = 0.5):
-  res = dict([(gt_id, [0.]) for gt_id in gts.iterkeys()])
+  res = dict([(gt_id, [0.]) for gt_id in gts.keys()])
   for track_id, track in enumerate(tracks):
     # max_ind = -1
     # max_score = 0
-    for gt_id, gt_track in gts.iteritems():
+    for gt_id, gt_track in gts.items():
       cnt = 0.
       ignore = 0
       pstart = max(gt_track.pstart, track.pstart)
@@ -109,11 +109,11 @@ if __name__ == '__main__':
   vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
-    print 'Processing %dth video...' % i
+    print('Processing %dth video...' % i)
 
     if os.path.exists(os.path.join(saving_root, '%s.pkl' % vind)):
-      print '\tLoading existing tracks for %s ...' % vind
-      with open(os.path.join(saving_root, '%s.pkl' % vind), 'r') as fin:
+      print('\tLoading existing tracks for %s ...' % vind)
+      with open(os.path.join(saving_root, '%s.pkl' % vind), 'rb') as fin:
         data = pickle.load(fin)
         scale = data['scale']
         if data.has_key('tracks'):
@@ -122,14 +122,14 @@ if __name__ == '__main__':
           tracks = data['mtracks'] + data['stracks']
           # tracks = data['stracks']
     else:
-      print '\tTracks for %s not found.' % vind
+      print('\tTracks for %s not found.' % vind)
       tracks = []
 
     gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
     tious = evaluate_track_curve(tracks[:nreturn], gt_tracks)
     if len(tracks) < nreturn:
-      print '\tCompensating values to length of %d' % len(tracks)
-      for tiou in tious.itervalues():
+      print('\tCompensating values to length of %d' % len(tracks))
+      for tiou in tious.values():
         while len(tiou) < nreturn + 1:
           tiou.append(tiou[-1])
 

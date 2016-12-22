@@ -15,6 +15,45 @@ from utils import *
 
 DEBUG_MODE = False
 
+# @profile
+# def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
+#   tracks = []
+#   for ind in range(len(frames) - 1):
+#     active_tracks = []
+#     # predict new locations for existing tracks
+#     for track in tracks:
+#       bbox = track.predict(frames[ind])
+#       if track.is_alive(bbox and bfilter(bbox)):
+#         active_tracks.append(track)
+#     # merge dection resutls into active tracks or create new tracks
+#     for label in range(1, masks[ind][0] + 1):
+#       bbox = compute_bbox(masks[ind][1] == label)
+#       max_iou = 0
+#       for track in active_tracks:
+#         iou = compute_iou(bbox, track.rois[-1])
+#         if iou > max_iou:
+#           max_iou = iou
+#           max_iou_track = track
+#       # TODO: appearance matching
+#       if max_iou > 0.5:
+#         max_iou_track.update(bbox, frames[ind])
+#       else:
+#         tracks.append(MovingTrack(ind, bbox, frames[ind]))
+#     if verbose and ind % verbose == 0:
+#       print('Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks)))
+#   if verbose:
+#     print('Simple backward tracking for %d tracks...' % len(tracks))
+#   for track in tracks:
+#     track.predict(frames[-1])
+#     track.start(track.rois[0], frames[track.pstart])
+#     for ind in range(track.pstart - 1, -1, -1):
+#       bbox = track.predict(frames[ind], reverse = True)
+#       if not track.is_alive(bbox and bfilter(bbox)):
+#         break
+#     track.terminate()
+#   return tracks
+
+
 @profile
 def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
   h, w = frames[0].shape[:2]
@@ -45,7 +84,7 @@ def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, ve
         local_inds = np.asarray(np.where(old_mask[old_bbox[1]: old_bbox[1] + old_bbox[3], 
                               old_bbox[0]: old_bbox[0] + old_bbox[2]]))
       # TODO: apply segmentation coverage check
-      if track.is_alive(valid_bbox):  
+      if valid_bbox and track.is_alive(valid_bbox):  
         # mark potential foreground
         global_inds = local_inds + np.asarray([[old_bbox[1] + track.rois[-1][1] - track.rois[-2][1]], 
                              [old_bbox[0] + track.rois[-1][0] - track.rois[-2][0]]], 
@@ -78,11 +117,11 @@ def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, ve
             max_iou_track.update(bbox, frame)
           elif overlap_motion:
             # overlap either with exsiting tracks or the motion clue at current frame
-            tracks.append(MovingTrack(ind, bbox, frame, bfilter))
+            tracks.append(MovingTrack(ind, bbox, frame))
     if verbose and ind % verbose == 0:
-      print 'Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks))
+      print('Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks)))
   if verbose:
-    print 'Simple backward tracking for %d tracks...' % len(tracks)
+    print('Simple backward tracking for %d tracks...' % len(tracks))
   for track in tracks:
     track.predict(frames[-1])
     track.start(track.rois[0], frames[track.pstart])
@@ -116,7 +155,7 @@ def generate_static_object_trajectory(flows, masks, bbs, nreturn = 1000, verbose
     # complete tracks that match to same single new bbox
     new_inds = set(range(bboxes.shape[0]))
     active_tracks.clear()
-    for ind, tracks in matches.iteritems():
+    for ind, tracks in matches.items():
       heapq.heapify(tracks)
       # tracks[0][1].update(tuple(bboxes[ind, :]), score = scores[ind])
       tracks[0][1].update(tracks[0][1].rois[-1], score = scores[ind])
@@ -130,7 +169,7 @@ def generate_static_object_trajectory(flows, masks, bbs, nreturn = 1000, verbose
     for ind in new_inds:
       active_tracks.add(StaticTrack(i, tuple(bboxes[ind]), scores[ind]))
     if verbose and i % verbose == 0:
-      print 'Tracking %dth frame, active tracks %d, total tracks %d' % (i, len(active_tracks), len(complete_tracks))
+      print('Tracking %dth frame, active tracks %d, total tracks %d' % (i, len(active_tracks), len(complete_tracks)))
   for track in active_tracks:
     track.terminate()
     push_heap(complete_tracks, (track.get_score(), track))
@@ -146,9 +185,9 @@ def generate_proposals(vind, nreturn, vsize = 240, working_root = '.'):
   if DEBUG_MODE:
     create_video_frames('../tracks/%s' % vind, frames)
   size = frames[0].shape[1], frames[0].shape[0]
-  scale = float(size[0]) / orig_size[0]
-  print '\tname: %s, fps: %d size: %dx%dx%d' % \
-      (vind, fps, len(frames), size[1], size[0])
+  scale = size[0] / orig_size[0]
+  print('\tname: %s, fps: %d size: %dx%dx%d' % \
+      (vind, fps, len(frames), size[1], size[0]))
 
   intermediate = os.path.join(working_root, 'intermediate/%s.h5' % vind)
   if not os.path.exists(intermediate):
@@ -192,18 +231,18 @@ if __name__ == '__main__':
   nreturn = args.nreturn
 
   if DEBUG_MODE:
-    print 'WARNING: visualization mode!'
+    print('WARNING: visualization mode!')
 
   assert os.path.exists(os.path.join(saving_root, 'our_results')), \
       'Directory for results of ours not found'
   vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
-    print 'Processing %dth video...' % i
+    print('Processing %dth video...' % i)
 
     if os.path.exists(os.path.join(saving_root, 'our_results', '%s.pkl' % vind)):
-      print '\tLoading existing tracks for %s ...' % vind
-      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'r') as fin:
+      print('\tLoading existing tracks for %s ...' % vind)
+      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'rb') as fin:
         data = pickle.load(fin)
         mtracks = data['mtracks']
         stracks = data['stracks']
@@ -219,9 +258,9 @@ if __name__ == '__main__':
     results = evaluate_track(tracks, gt_tracks)
     with open(os.path.join(saving_root, 'our_results', '%s.txt' % vind), 'w') as fout:
       ss = 0.
-      for gt_id, result in results.iteritems():
+      for gt_id, result in results.items():
         ss += result[1]
-        print >> fout, 'gt %d matches track %s with score %f' % (gt_id, result[0], result[1])
-      print >> fout, 'average score %f' % (ss / len(results),)
+        print('gt %d matches track %s with score %f' % (gt_id, result[0], result[1]), file = fout)
+      print('average score %f' % (ss / len(results),), file = fout)
 
   # embed()

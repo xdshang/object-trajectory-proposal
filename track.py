@@ -11,6 +11,9 @@ class Track(object):
     self.pend = pinit + 1
     self.rois = deque([bbox])
 
+  def __lt__(self, other):
+    return False
+
   def length(self):
     return self.pend - self.pstart
   
@@ -41,7 +44,8 @@ class MovingTrack(Track):
     # reset the tracker
     self.cnt_invis = 0
     self.tracker = cv2.Tracker_create('KCF')
-    return self.tracker.init(frame, bbox)
+    ret = self.tracker.init(frame, bbox)
+    return ret
   
   def terminate(self):
     self.tracker = None

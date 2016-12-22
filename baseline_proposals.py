@@ -16,12 +16,12 @@ def generate_proposals(vind, nreturn, baseline, vsize = 240, working_root = '.')
       'snippets/' + vind + '.mp4'))
   frames = resize_frames(frames, vsize)
   size = frames[0].shape[1], frames[0].shape[0]
-  scale = float(size[0]) / orig_size[0]
-  print '\tname: %s, fps: %d size: %dx%dx%d' % \
-      (vind, fps, len(frames), size[1], size[0])
+  scale = size[0] / orig_size[0]
+  print('\tname: %s, fps: %d size: %dx%dx%d' % \
+      (vind, fps, len(frames), size[1], size[0]))
 
   bfilter = BBoxFilter(size[0] * size[1] * 0.001, size[0] * size[1], 0.1)
-  pinit = len(frames) / 2
+  pinit = len(frames) // 2
 
   if 'edgebox' in baseline:
     bbs = sio.loadmat(glob.glob('%s/%s_proposals/*/%s*' % \
@@ -55,7 +55,7 @@ def generate_proposals(vind, nreturn, baseline, vsize = 240, working_root = '.')
     track.terminate()
     tracks.append((bbs[i, 4] * track.length(), track))
     if i % 20 == 0:
-      print 'Tracking %dth frame, total tracks %d' % (i, len(tracks))
+      print('Tracking %dth frame, total tracks %d' % (i, len(tracks)))
 
   tracks = [track for s, track in sorted(tracks, key = lambda x: x[0], reverse = True)]
   return tracks, scale
@@ -82,11 +82,11 @@ if __name__ == '__main__':
   vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
-    print 'Processing %dth video...' % i
+    print('Processing %dth video...' % i)
 
     if os.path.exists(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind)):
-      print '\tLoading existing tracks for %s ...' % vind
-      with open(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind), 'r') as fin:
+      print('\tLoading existing tracks for %s ...' % vind)
+      with open(os.path.join(saving_root, '%s_results' % baseline, '%s.pkl' % vind), 'rb') as fin:
         data = pickle.load(fin)
         tracks = data['tracks']
         scale = data['scale']
@@ -99,9 +99,9 @@ if __name__ == '__main__':
     results = evaluate_track(tracks, gt_tracks)
     with open(os.path.join(saving_root, '%s_results' % baseline, '%s.txt' % vind), 'w') as fout:
       ss = 0.
-      for gt_id, result in results.iteritems():
+      for gt_id, result in results.items():
         ss += result[1]
-        print >> fout, 'gt %d matches track %s with score %f' % (gt_id, result[0], result[1])
-      print >> fout, 'average score %f' % (ss / len(results),)
+        print('gt %d matches track %s with score %f' % (gt_id, result[0], result[1]), file = fout)
+      print('average score %f' % (ss / len(results),), file = fout)
 
   # embed()

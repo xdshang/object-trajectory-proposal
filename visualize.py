@@ -95,7 +95,7 @@ if __name__ == '__main__':
       'intermediate', '%s.h5' % vind))
 
   if result_dir:
-    with open(os.path.join(result_dir, '%s.pkl' % vind), 'r') as fin:
+    with open(os.path.join(result_dir, '%s.pkl' % vind), 'rb') as fin:
       data = pickle.load(fin)
       if data.has_key('tracks'):
         tracks = data['tracks']
