@@ -76,8 +76,8 @@ def background_motion(frames, intermediate = None):
   else:
     with h5py.File(intermediate, 'r') as fin:
       flows = list(fin['/flows'][:].astype(np.float32))
-  Fs, masks = generate_moving_mask_v2(flows, 1, 10, np.prod(frames[0].shape[:2]) * 0.2)
-  # Fs, masks = generate_moving_mask_v3(frames, flows, 1, 
-  #     np.prod(frames[0].shape[:2]) * 0.001, 
-  #     np.prod(frames[0].shape[:2]) * 0.2)
+  # Fs, masks = generate_moving_mask_v2(flows, 1, 10, np.prod(frames[0].shape[:2]) * 0.2)
+  Fs, masks = generate_moving_mask_v3(frames, flows, 1, 
+      np.prod(frames[0].shape[:2]) * 0.001, 
+      np.prod(frames[0].shape[:2]) * 0.3)
   return flows, masks

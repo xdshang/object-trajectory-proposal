@@ -15,109 +15,30 @@ from utils import *
 
 DEBUG_MODE = False
 
-# @profile
-# def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
-#   tracks = []
-#   for ind in range(len(frames) - 1):
-#     active_tracks = []
-#     # predict new locations for existing tracks
-#     for track in tracks:
-#       bbox = track.predict(frames[ind])
-#       if track.is_alive(bbox and bfilter(bbox)):
-#         active_tracks.append(track)
-#     # merge dection resutls into active tracks or create new tracks
-#     for label in range(1, masks[ind][0] + 1):
-#       bbox = compute_bbox(masks[ind][1] == label)
-#       max_iou = 0
-#       for track in active_tracks:
-#         iou = compute_iou(bbox, track.rois[-1])
-#         if iou > max_iou:
-#           max_iou = iou
-#           max_iou_track = track
-#       # TODO: appearance matching
-#       if max_iou > 0.5:
-#         max_iou_track.update(bbox, frames[ind])
-#       else:
-#         tracks.append(MovingTrack(ind, bbox, frames[ind]))
-#     if verbose and ind % verbose == 0:
-#       print('Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks)))
-#   if verbose:
-#     print('Simple backward tracking for %d tracks...' % len(tracks))
-#   for track in tracks:
-#     track.predict(frames[-1])
-#     track.start(track.rois[0], frames[track.pstart])
-#     for ind in range(track.pstart - 1, -1, -1):
-#       bbox = track.predict(frames[ind], reverse = True)
-#       if not track.is_alive(bbox and bfilter(bbox)):
-#         break
-#     track.terminate()
-#   return tracks
-
-
 @profile
 def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, verbose = 0):
-  h, w = frames[0].shape[:2]
   tracks = []
-  bgdModel = np.empty((1, 65), dtype = np.float64)
-  fgdModel = np.empty((1, 65), dtype = np.float64)
-  old_mask = np.empty((h, w), dtype = np.uint8)
-  mask = np.empty((h, w), dtype = np.uint8)
   for ind in range(len(frames) - 1):
-    frame = frames[ind]
-    motion = masks[ind][1] > 0
-    old_mask[...] = mask & 1
-    if not segment is None:
-      _seg = np.zeros_like(frames[0])
-      _seg[...] = [[[196, 144, 68]]]
-      _seg[old_mask > 0, :] = [[[0, 192, 255]]]
-      _seg[motion, :] = [[[0, 0, 255]]]
-      segment.append(_seg)
-    mask[...] = cv2.GC_PR_BGD
     active_tracks = []
     # predict new locations for existing tracks
     for track in tracks:
-      bbox = track.predict(frame)
-      valid_bbox = bbox and bfilter(bbox)
-      if valid_bbox:
-        old_bbox = truncate_bbox(track.rois[-2], h, w)
-        old_bbox = round_bbox(old_bbox)
-        local_inds = np.asarray(np.where(old_mask[old_bbox[1]: old_bbox[1] + old_bbox[3], 
-                              old_bbox[0]: old_bbox[0] + old_bbox[2]]))
-      # TODO: apply segmentation coverage check
-      if valid_bbox and track.is_alive(valid_bbox):  
-        # mark potential foreground
-        global_inds = local_inds + np.asarray([[old_bbox[1] + track.rois[-1][1] - track.rois[-2][1]], 
-                             [old_bbox[0] + track.rois[-1][0] - track.rois[-2][0]]], 
-                            dtype = np.int64)
-        valid_inds = np.all(global_inds >= 0, axis = 0) & (global_inds[0] < h) & (global_inds[1] < w)
-        valid_global_inds = global_inds[:, valid_inds]
-        mask[valid_global_inds[0], valid_global_inds[1]] = cv2.GC_PR_FGD
+      bbox = track.predict(frames[ind])
+      if track.is_alive(bbox and bfilter(bbox)):
         active_tracks.append(track)
-    # mark motion clue as highly potential foreground
-    mask[motion] = cv2.GC_FGD
-    if np.sum(mask & 1) > 10:
-      bgdModel[...] = 0
-      fgdModel[...] = 0
-      mask, _, _ = cv2.grabCut(frame, mask, None, bgdModel, fgdModel, 1, cv2.GC_INIT_WITH_MASK)
-      nc, components = cv2.connectedComponents((mask & 1).astype(np.uint8))
-      # merge dection resutls into active tracks or create new tracks
-      for label in range(1, nc):
-        component = components == label
-        overlap_motion = np.any(component & motion)
-        bbox = compute_bbox(component)
-        if bfilter(bbox):
-          max_iou = 0
-          for track in active_tracks:
-            iou = compute_iou(bbox, track.rois[-1])
-            if iou > max_iou:
-              max_iou = iou
-              max_iou_track = track
-          # TODO: appearance matching, smaller iou threshold
-          if max_iou > 0.7:
-            max_iou_track.update(bbox, frame)
-          elif overlap_motion:
-            # overlap either with exsiting tracks or the motion clue at current frame
-            tracks.append(MovingTrack(ind, bbox, frame))
+    # merge dection resutls into active tracks or create new tracks
+    for label in range(1, masks[ind][0] + 1):
+      bbox = compute_bbox(masks[ind][1] == label)
+      max_iou = 0
+      for track in active_tracks:
+        iou = compute_iou(bbox, track.rois[-1])
+        if iou > max_iou:
+          max_iou = iou
+          max_iou_track = track
+      # TODO: appearance matching
+      if max_iou > 0.5:
+        max_iou_track.update(bbox, frames[ind])
+      else:
+        tracks.append(MovingTrack(ind, bbox, frames[ind]))
     if verbose and ind % verbose == 0:
       print('Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks)))
   if verbose:
