@@ -3,6 +3,7 @@ import numpy as np
 import heapq
 import time
 import os
+import random
 
 def profile(func):
   def wrap(*args, **kwargs):
@@ -145,8 +146,9 @@ def get_vinds(fname, batch_size, batch_id):
       batches[min_ind][1] += vind[1]
       batches[min_ind][0].append(vind)
 
-    return [vind for vind, _ in
-        sorted(batches[batch_id - 1][0], key = lambda x: (x[1], x[0]))]
+    vinds = [vind for vind, _ in batches[batch_id - 1][0]]
+    random.shuffle(vinds)
+    return vinds
   else:
     batch_num = (len(vinds) - 1) // batch_size + 1
     start_id = (batch_id - 1) * batch_num
