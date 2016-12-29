@@ -37,7 +37,7 @@ def generate_moving_object_trajectory(frames, masks, bfilter, segment = None, ve
       # TODO: appearance matching
       if max_iou > 0.5:
         max_iou_track.update(bbox, frames[ind])
-      else:
+      elif bfilter(bbox):
         tracks.append(MovingTrack(ind, bbox, frames[ind]))
     if verbose and ind % verbose == 0:
       print('Tracking %dth frame, active tracks %d, total tracks %d' % (ind, len(active_tracks), len(tracks)))
