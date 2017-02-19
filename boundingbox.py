@@ -55,6 +55,8 @@ def compute_iou(bbox1, bbox2):
 def find_max_iou(bbox, bboxes):
   bbox = np.asarray(bbox)
   bboxes = np.asarray(bboxes)
+  if bboxes.shape[0] == 0:
+    return -1, 0.
   minp = np.maximum([bbox[:2]], bboxes[:, :2])
   maxp = np.minimum([bbox[:2] + bbox[2:]], bboxes[:, :2] + bboxes[:, 2:])
   delta = maxp - minp

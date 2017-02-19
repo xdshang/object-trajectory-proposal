@@ -65,7 +65,6 @@ def generate_static_object_trajectory(flows, masks, bbs, nreturn = 1000, verbose
     # find matches and complete tracks that do not have any matching new bbox
     matches = defaultdict(list)
     for track in active_tracks:
-      # TODO: mask out moving region in optical flow
       bbox = track.predict(masked_flow)
       max_ind, max_iou = find_max_iou(bbox, bboxes)
       if max_iou > 0.5:
