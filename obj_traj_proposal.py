@@ -32,7 +32,10 @@ class ObjTrajProposal():
     self.flows, self.masks = background_motion(self.frames, intermediate)
     self.bbs = sio.loadmat(glob.glob('%s/edgebox50_proposals/*/%s*' % \
         (working_root, vind))[0])['bbs']
-    print('\tname: %s, fps: %d size: %dx%dx%d' % \
+    for i in range(self.bbs.shape[0]):
+      self.bbs[i][0][:, :2] -= 1
+      self.bbs[i][0][:, :4] *= self.working_scale
+    print('\tname: %s fps: %d size: %dx%dx%d' % \
         (vind, fps, len(self.frames), self.fsize[1], self.fsize[0]))
 
   def get_working_scale(self):
@@ -93,14 +96,14 @@ class ObjTrajProposal():
     Detect new bboxes
     """
     # moving objects detection
-    # if fid > 0:
-    #   for label in range(1, self.masks[fid - 1][0] + 1):
-    #     bbox = compute_bbox(self.masks[fid - 1][1] == label)
-    #     if self.bbox_filter(bbox):
-    #       track = Track(fid, bbox, ttype = 'm')
-    #       track.tracker = cv2.Tracker_create('KCF')
-    #       track.tracker.init(self.frames[fid], bbox)
-    #       initial_tracks.add(track)
+    if fid > 0:
+      for label in range(1, self.masks[fid - 1][0] + 1):
+        bbox = compute_bbox(self.masks[fid - 1][1] == label)
+        if self.bbox_filter(bbox):
+          track = Track(fid, bbox, ttype = 'm')
+          track.tracker = cv2.Tracker_create('KCF')
+          track.tracker.init(self.frames[fid], bbox)
+          initial_tracks.add(track)
     # static objects detection
     for i in range(self.bbs[fid][0].shape[0]):
       bbox = self.bbs[fid][0][i, :4]
@@ -156,7 +159,7 @@ class ObjTrajProposal():
 
   def generate(self, nreturn = 3000, verbose = 0):
     """
-    Proper pipeline: 1)detecting; 2)tracking; 3)merging; 4)pruning
+    Proper pipeline: 1)tracking; 2)detecting; 3)associating; 4)pruning
     """
     initial_tracks = set()
     active_tracks = set()
@@ -229,4 +232,4 @@ if __name__ == '__main__':
         print('gt %d matches track %s with score %f' % (gt_id, result[0], result[1]), file = fout)
       print('average score %f' % (ss / len(results),), file = fout)
 
-  embed()
+  # embed()
