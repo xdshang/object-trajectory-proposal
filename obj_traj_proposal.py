@@ -5,7 +5,7 @@ import pickle
 import cv2
 import numpy as np
 from scipy import io as sio
-from track import Track, tracking_by_optflow
+from track import Track, tracking_by_optflow, tracking_by_optflow_v2
 from background import background_motion
 from utils import *
 from boundingbox import *
@@ -64,7 +64,7 @@ class ObjTrajProposal():
       elif track_type == 's':
         masked_flow = self.flows[fid - 1] * \
             (self.masks[fid - 1][1] == 0)[:, :, None]
-        bbox = tracking_by_optflow(track.tail(), masked_flow)
+        bbox = tracking_by_optflow_v2(track.tail(), masked_flow)
         bbox = truncate_bbox(bbox, self.fsize[1], self.fsize[0])
         track.predict(bbox)
       else:
@@ -96,14 +96,14 @@ class ObjTrajProposal():
     Detect new bboxes
     """
     # moving objects detection
-    if fid > 0:
-      for label in range(1, self.masks[fid - 1][0] + 1):
-        bbox = compute_bbox(self.masks[fid - 1][1] == label)
-        if self.bbox_filter(bbox):
-          track = Track(fid, bbox, ttype = 'm')
-          track.tracker = cv2.Tracker_create('KCF')
-          track.tracker.init(self.frames[fid], bbox)
-          initial_tracks.add(track)
+    # if fid > 0:
+    #   for label in range(1, self.masks[fid - 1][0] + 1):
+    #     bbox = compute_bbox(self.masks[fid - 1][1] == label)
+    #     if self.bbox_filter(bbox):
+    #       track = Track(fid, bbox, ttype = 'm')
+    #       track.tracker = cv2.Tracker_create('KCF')
+    #       track.tracker.init(self.frames[fid], bbox)
+    #       initial_tracks.add(track)
     # static objects detection
     for i in range(self.bbs[fid][0].shape[0]):
       bbox = self.bbs[fid][0][i, :4]
@@ -194,8 +194,9 @@ if __name__ == '__main__':
   parser.add_argument('-r', '--working_root', default = '../', help = 'working root')
   parser.add_argument('-s', '--saving_root', required = True, help = 'saving root')
   parser.add_argument('-n', '--nreturn', type = int, default = 2000, help = 'number of returned proposals')
-  parser.add_argument('--bsize', type = int, required = True, help = 'batch size')
-  parser.add_argument('--bid', type = int, required = True, help = 'batch id')
+  parser.add_argument('--vid', help = 'video ID')
+  parser.add_argument('--bsize', type = int, help = 'batch size')
+  parser.add_argument('--bid', type = int, help = 'batch id')
   args = parser.parse_args()
 
   working_root = args.working_root
@@ -204,7 +205,10 @@ if __name__ == '__main__':
 
   assert os.path.exists(os.path.join(saving_root, 'our_results')), \
       'Directory for results of ours not found'
-  vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
+  if 'vid' in args:
+    vinds = [args.vid]
+  else:
+    vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
 
   for i, vind in enumerate(vinds):
     print('Processing %dth video...' % i)

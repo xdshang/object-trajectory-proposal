@@ -5,6 +5,22 @@ import time
 import os
 import random
 
+def get_colors():
+  return ((0, 255, 0),
+    (0, 0, 255),
+    (255, 0, 0),
+    (255, 255, 0),
+    (255, 0, 255),
+    (0, 255, 255),
+    (255, 128, 0),
+    (255, 0, 128),
+    (128, 255, 0),
+    (128, 0, 255),
+    (0, 128, 255),
+    (255, 0, 128),
+    (0, 255, 128))
+
+
 def profile(func):
   def wrap(*args, **kwargs):
     started_at = time.time()
@@ -18,7 +34,7 @@ def extract_frames(fname):
   cap = cv2.VideoCapture(fname)
   fps = cap.get(cv2.CAP_PROP_FPS)
   size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-  assert fps > 0, 'Broken video %s' % vind
+  assert fps > 0, 'Broken video %s' % fname
   frames = []
   rval, frame = cap.read()
   while rval:

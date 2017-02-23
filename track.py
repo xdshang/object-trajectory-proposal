@@ -188,3 +188,63 @@ def tracking_by_optflow(curr_bbox, flow):
     h = 0
     rmin = (rmin + rmax) / 2
   return cmin, rmin, w, h
+
+
+def tracking_by_optflow_v2(curr_bbox, flow):
+  curr_bbox = truncate_bbox(curr_bbox, flow.shape[0], flow.shape[1])
+  inner = round_bbox((curr_bbox[0] + curr_bbox[2] * 0.25,
+      curr_bbox[1] + curr_bbox[3] * 0.25,
+      curr_bbox[2] * 0.5, curr_bbox[3] * 0.5))
+  l_of = np.mean(flow[inner[1]: inner[1] + inner[3] + 1, inner[0], 0])
+  r_of = np.mean(flow[inner[1]: inner[1] + inner[3] + 1, inner[0] + inner[2], 0])
+  t_of = np.mean(flow[inner[1], inner[0]: inner[0] + inner[2] + 1, 1])
+  b_of = np.mean(flow[inner[1] + inner[3], inner[0]: inner[0] + inner[2] + 1, 1])
+  cmin = l_of - (r_of - l_of) * 0.5 + curr_bbox[0]
+  cmax = r_of + (r_of - l_of) * 0.5 + curr_bbox[0] + curr_bbox[2]
+  rmin = t_of - (b_of - t_of) * 0.5 + curr_bbox[1]
+  rmax = b_of + (b_of - t_of) * 0.5 + curr_bbox[1] + curr_bbox[3]
+  w = cmax - cmin
+  h = rmax - rmin
+  if w < 0:
+    w = 0
+    cmin = (cmin + cmax) / 2
+  if h < 0:
+    h = 0
+    rmin = (rmin + rmax) / 2
+  return cmin, rmin, w, h
+
+
+if __name__ == '__main__':
+  import sys
+  from background import background_motion
+  from utils import *
+
+  working_root = '../'
+  vind = sys.argv[1]
+  # load video frames
+  frames, fps, _ = extract_frames(os.path.join(working_root, 
+      'snippets', '%s.mp4' % vind))
+  frames = resize_frames(frames, 240)
+  # load optical flows
+  flows, masks = background_motion(frames, os.path.join(working_root, 
+      'intermediate', '%s.h5' % vind))
+  h, w = flows[0].shape[0], flows[0].shape[1]
+
+  bbox_init = [(190.0, 40, 80, 80), (180., 20, 90, 100)]
+  # bbox_init = [(200., 100, 65, 40), (100.0, 140, 40, 20)]
+  tracks = []
+  for binit in bbox_init:
+    track = Track(0, binit)
+    for i in range(len(flows)):
+      # masked_flow = flows[i] * (masks[i][1] == 0)[:, :, None]
+      bbox = tracking_by_optflow_v2(track.tail(), flows[i])
+      track.predict(bbox)
+    tracks.append(track)
+
+  colors = get_colors()
+  for i in range(len(frames)):
+    for j in range(len(tracks)):
+      frames[i] = draw_tracks(i, frames, [tracks[j]], 
+          color = colors[j % len(colors)])
+  create_video(vind, frames, fps, 
+      (frames[0].shape[1], frames[0].shape[0]), True)

@@ -10,19 +10,7 @@ from boundingbox import *
 from utils import *
 from IPython import embed
 
-colors = ((0, 255, 0),
-          (0, 0, 255),
-          (255, 0, 0),
-          (255, 255, 0),
-          (255, 0, 255),
-          (0, 255, 255),
-          (255, 128, 0),
-          (255, 0, 128),
-          (128, 255, 0),
-          (128, 0, 255),
-          (0, 128, 255),
-          (255, 0, 128),
-          (0, 255, 128))
+colors = get_colors()
 
 class StaticTrack_v0(StaticTrack):
     
@@ -115,7 +103,7 @@ if __name__ == '__main__':
             pass
     tracks = hit_tracks
   else:
-    # bbox_init = (370.0, 10, 40, 80)
+    # bbox_init = (80.0, 140, 40, 30)
     bbox_init = [(160., 40, 65, 40), (25., 35, 60, 50)]
     tracks = []
     for binit in bbox_init:
