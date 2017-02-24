@@ -5,7 +5,7 @@ import pickle
 import cv2
 import numpy as np
 from scipy import io as sio
-from track import Track, tracking_by_optflow, tracking_by_optflow_v2
+from track import Track, tracking_by_optflow
 from background import background_motion
 from utils import *
 from boundingbox import *
@@ -64,7 +64,7 @@ class ObjTrajProposal():
       elif track_type == 's':
         masked_flow = self.flows[fid - 1] * \
             (self.masks[fid - 1][1] == 0)[:, :, None]
-        bbox = tracking_by_optflow_v2(track.tail(), masked_flow)
+        bbox = tracking_by_optflow(track.tail(), masked_flow)
         bbox = truncate_bbox(bbox, self.fsize[1], self.fsize[0])
         track.predict(bbox)
       else:
@@ -186,6 +186,53 @@ class ObjTrajProposal():
         key = lambda x: x[0], reverse = True)[:nreturn]]
 
     return return_tracks
+
+
+class ObjTrajProposalV2(ObjTrajProposal):
+  def __init__(self, vind, working_root, vsize = 240):
+    super(ObjTrajProposal, self).__init__(vind, working_root, vsize)
+
+  @profile
+  def tracking(self, fid, tracks, inner_scale = 0.5):
+    """
+    Predict new locations for existing tracks
+    """
+    tracks = list(tracks)
+    bboxes = np.asarray([track.tail() for track in tracks], dtype = np.float32)
+    # precompute cumulative summation of optical flow
+    csflow_col = np.cumsum(self.flows[fid - 1][:, :, 0], axis = 0)
+    csflow_row = np.cumsum(self.flows[fid - 1][:, :, 1], axis = 1)
+    # compute offsets of 4 edges of inner bounding boxes
+    l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5) - 1
+    r = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
+    t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5) - 1
+    b = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
+    l = np.around(l).astype(np.int32)
+    r = np.around(r).astype(np.int32)
+    t = np.around(t).astype(np.int32)
+    b = np.around(b).astype(np.int32)
+    np.clip(l, 0, self.size[0] - 1, out = l)
+    np.clip(r, 0, self.size[0] - 1, out = r)
+    np.clip(t, 0, self.size[1] - 1, out = t)
+    np.clip(b, 0, self.size[1] - 1, out = b)
+    # ensure no divide by zero
+    w = np.clip(r - l, 1, self.size[0])
+    h = np.clip(b - t, 1, self.size[1])
+    l_of = (csflow_col[t, l] - csflow_col[b, l]) / h
+    r_of = (csflow_col[t, r] - csflow_col[b, r]) / h
+    t_of = (csflow_row[t, r] - csflow_row[t, l]) / w
+    b_of = (csflow_row[b, r] - csflow_row[b, l]) / w
+    # linearly interpolate to track original bounding boxes
+    bboxes[:, 0] += l_of * 1.5 - r_of * 0.5
+    bboxes[:, 1] += t_of * 1.5 - b_of * 0.5
+    bboxes[:, 2] += (r_of - l_of) * 2.
+    bboxes[:, 3] += (b_of - t_of) * 2.
+    # update the last bounding boxe for each track
+    for i, track in enumerate(tracks):
+      # TODO: bbox = truncate_bbox(bboxes[i], self.fsize[1], self.fsize[0])
+      track.predict(tuple(bboxes[i]))
+
+    return set()
 
 
 if __name__ == '__main__':
