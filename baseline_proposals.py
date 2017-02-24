@@ -5,7 +5,7 @@ import argparse
 import glob
 import pickle
 from IPython import embed
-from track import MovingTrack
+from trajectory import MovingTrack
 from boundingbox import *
 from evaluate import *
 from utils import *

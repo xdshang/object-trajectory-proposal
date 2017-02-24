@@ -3,7 +3,8 @@ import glob
 import cv2
 import numpy as np
 from scipy import io as sio
-from track import Track, tracking_by_optflow, tracking_by_optflow_v3
+from trajectory import Trajectory
+from tracker import tracking_by_optflow, tracking_by_optflow_v3
 from background import background_motion, get_optical_flow
 from utils import *
 from boundingbox import *
@@ -105,7 +106,7 @@ class ObjTrajProposal():
       bbox = self.bbs[fid][0][i, :4]
       score = self.bbs[fid][0][i, 4]
       if self.bbox_filter(bbox):
-        initial_tracks.add(Track(fid, bbox, score, 's'))
+        initial_tracks.add(Trajectory(fid, bbox, score, 's'))
 
   # @profile
   def associating(self, initial_tracks, active_tracks, act_len = 1):

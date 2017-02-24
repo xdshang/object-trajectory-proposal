@@ -1,6 +1,6 @@
 import numpy as np
 import xml.etree.ElementTree as ET
-from track import Track
+from trajectory import Trajectory
 from boundingbox import compute_iou
 
 def get_gt_tracks(fname, scale = 1.):
@@ -23,7 +23,7 @@ def get_gt_tracks(fname, scale = 1.):
           track.predict(None)
         track.predict(bbox)
       except KeyError:
-        gts[trackid] = Track(i, bbox)
+        gts[trackid] = Trajectory(i, bbox)
   return gts
 
 

@@ -7,7 +7,7 @@ import glob
 import pickle
 from collections import defaultdict
 from IPython import embed
-from track import MovingTrack, StaticTrack
+from trajectory import MovingTrack, StaticTrack
 from background import background_motion
 from boundingbox import *
 from evaluate import *

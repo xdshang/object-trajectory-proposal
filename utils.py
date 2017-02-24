@@ -171,3 +171,48 @@ def get_vinds(fname, batch_size, batch_id):
     end_id = min(batch_id * batch_num - 1, len(vinds)) 
     print('Processing from %d to %d...' % (start_id, end_id))
     return [vind for vind, _ in vinds[start_id: end_id + 1]]
+
+
+def _onmouse(event, x, y, flags, params):
+  global _rectangle, _ix, _iy, _display_img, _img
+
+  if event == cv2.EVENT_LBUTTONDOWN:
+    _rectangle = True
+    _ix, _iy = x, y
+  elif event == cv2.EVENT_MOUSEMOVE:
+    if _rectangle == True:
+      _display_img = _img.copy()
+      cv2.rectangle(_display_img, (_ix, _iy), (x, y), (0, 255, 0), 1)
+  elif event == cv2.EVENT_LBUTTONUP:
+    _rectangle = False
+    _bboxes.append((float(min(_ix, x)), float(min(_iy, y)), 
+        float(abs(_ix - x)), float(abs(_iy - y))))
+    _display_img = draw_bboxes(_img, _bboxes, (0, 0, 255))
+
+
+def draw_bboxes_on_image(img):
+  global _display_img, _img, _bboxes, _rectangle
+
+  _rectangle = False
+  _bboxes = []
+  _img = img
+  _display_img = img.copy()
+
+  cv2.namedWindow('draw bounding boxes')
+  cv2.setMouseCallback('draw bounding boxes', _onmouse)
+
+  while(1):
+    cv2.imshow('draw bounding boxes', _display_img)
+    k = cv2.waitKey(100)
+    # escape key
+    if k == 1114111:
+      if len(_bboxes) == 0:
+        break
+      _bboxes.pop()
+      _display_img = draw_bboxes(_img, _bboxes, (0, 0, 255))
+    # enter key
+    elif k == 1048586 or k == 1113997:
+      break
+
+  cv2.destroyAllWindows()
+  return _bboxes

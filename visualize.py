@@ -5,7 +5,7 @@ import os, sys
 import matplotlib.pyplot as plt
 import skimage.io as skio
 from background import background_motion
-from track import StaticTrack
+from trajectory import StaticTrack
 from boundingbox import *
 from utils import *
 from IPython import embed
