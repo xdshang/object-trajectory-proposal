@@ -1,16 +1,12 @@
 import os
-import argparse
 import glob
-import pickle
 import cv2
 import numpy as np
 from scipy import io as sio
-from track import Track, tracking_by_optflow
-from background import background_motion
+from track import Track, tracking_by_optflow, tracking_by_optflow_v3
+from background import background_motion, get_optical_flow
 from utils import *
 from boundingbox import *
-from evaluate import *
-from IPython import embed
 
 
 class ObjTrajProposal():
@@ -190,97 +186,38 @@ class ObjTrajProposal():
 
 class ObjTrajProposalV2(ObjTrajProposal):
   def __init__(self, vind, working_root, vsize = 240):
-    super(ObjTrajProposal, self).__init__(vind, working_root, vsize)
+    frames, fps, orig_size = extract_frames(os.path.join(working_root, 
+        'snippets/' + vind + '.mp4'))
+    self.frames = resize_frames(frames, vsize)
+    self.fsize = self.frames[0].shape[1], self.frames[0].shape[0]
+    self.working_scale = self.fsize[0] / orig_size[0]
+    self.bbox_filter = BBoxFilter(self.fsize[0] * self.fsize[1] * 0.001, 
+        self.fsize[0] * self.fsize[1] * 0.3, 0.1)
 
-  @profile
+    intermediate = os.path.join(working_root, 'intermediate/%s.h5' % vind)
+    if not os.path.exists(intermediate):
+      intermediate = None
+    self.flows = get_optical_flow(self.frames, intermediate)
+    self.bbs = sio.loadmat(glob.glob('%s/edgebox50_proposals/*/%s*' % \
+        (working_root, vind))[0])['bbs']
+    for i in range(self.bbs.shape[0]):
+      self.bbs[i][0][:, :2] -= 1
+      self.bbs[i][0][:, :4] *= self.working_scale
+    print('\tname: %s fps: %d size: %dx%dx%d' % \
+        (vind, fps, len(self.frames), self.fsize[1], self.fsize[0]))
+
+  # @profile
   def tracking(self, fid, tracks, inner_scale = 0.5):
     """
     Predict new locations for existing tracks
     """
     tracks = list(tracks)
     bboxes = np.asarray([track.tail() for track in tracks], dtype = np.float32)
-    # precompute cumulative summation of optical flow
-    csflow_col = np.cumsum(self.flows[fid - 1][:, :, 0], axis = 0)
-    csflow_row = np.cumsum(self.flows[fid - 1][:, :, 1], axis = 1)
-    # compute offsets of 4 edges of inner bounding boxes
-    l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5) - 1
-    r = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
-    t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5) - 1
-    b = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
-    l = np.around(l).astype(np.int32)
-    r = np.around(r).astype(np.int32)
-    t = np.around(t).astype(np.int32)
-    b = np.around(b).astype(np.int32)
-    np.clip(l, 0, self.size[0] - 1, out = l)
-    np.clip(r, 0, self.size[0] - 1, out = r)
-    np.clip(t, 0, self.size[1] - 1, out = t)
-    np.clip(b, 0, self.size[1] - 1, out = b)
-    # ensure no divide by zero
-    w = np.clip(r - l, 1, self.size[0])
-    h = np.clip(b - t, 1, self.size[1])
-    l_of = (csflow_col[t, l] - csflow_col[b, l]) / h
-    r_of = (csflow_col[t, r] - csflow_col[b, r]) / h
-    t_of = (csflow_row[t, r] - csflow_row[t, l]) / w
-    b_of = (csflow_row[b, r] - csflow_row[b, l]) / w
-    # linearly interpolate to track original bounding boxes
-    bboxes[:, 0] += l_of * 1.5 - r_of * 0.5
-    bboxes[:, 1] += t_of * 1.5 - b_of * 0.5
-    bboxes[:, 2] += (r_of - l_of) * 2.
-    bboxes[:, 3] += (b_of - t_of) * 2.
+    bboxes = tracking_by_optflow_v3(bboxes, self.flows[fid - 1])
     # update the last bounding boxe for each track
     for i, track in enumerate(tracks):
       # TODO: bbox = truncate_bbox(bboxes[i], self.fsize[1], self.fsize[0])
-      track.predict(tuple(bboxes[i]))
+      track.predict(bboxes[i])
 
     return set()
 
-
-if __name__ == '__main__':
-
-  parser = argparse.ArgumentParser(description = 'OTP proposal')
-  parser.add_argument('-r', '--working_root', default = '../', help = 'working root')
-  parser.add_argument('-s', '--saving_root', required = True, help = 'saving root')
-  parser.add_argument('-n', '--nreturn', type = int, default = 2000, help = 'number of returned proposals')
-  parser.add_argument('--vid', help = 'video ID')
-  parser.add_argument('--bsize', type = int, help = 'batch size')
-  parser.add_argument('--bid', type = int, help = 'batch id')
-  args = parser.parse_args()
-
-  working_root = args.working_root
-  saving_root = args.saving_root
-  nreturn = args.nreturn
-
-  assert os.path.exists(os.path.join(saving_root, 'our_results')), \
-      'Directory for results of ours not found'
-  if 'vid' in args:
-    vinds = [args.vid]
-  else:
-    vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
-
-  for i, vind in enumerate(vinds):
-    print('Processing %dth video...' % i)
-
-    if os.path.exists(os.path.join(saving_root, 'our_results', '%s.pkl' % vind)):
-      print('\tLoading existing tracks for %s ...' % vind)
-      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'rb') as fin:
-        data = pickle.load(fin)
-        tracks = data['tracks']
-        scale = data['scale']
-    else:
-      otp = ObjTrajProposal(vind, working_root = working_root)
-      tracks = otp.generate(verbose = 20)
-      scale = otp.get_working_scale()
-      with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:
-        pickle.dump({'tracks': tracks, 'scale': scale}, fout)
-
-    tracks = tracks[:nreturn]
-    gt_tracks = get_gt_tracks(os.path.join(working_root, 'annotations/%s.xml' % vind), scale)
-    results = evaluate_track(tracks, gt_tracks)
-    with open(os.path.join(saving_root, 'our_results', '%s.txt' % vind), 'w') as fout:
-      ss = 0.
-      for gt_id, result in results.items():
-        ss += result[1]
-        print('gt %d matches track %s with score %f' % (gt_id, result[0], result[1]), file = fout)
-      print('average score %f' % (ss / len(results),), file = fout)
-
-  # embed()

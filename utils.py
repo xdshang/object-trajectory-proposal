@@ -25,7 +25,7 @@ def profile(func):
   def wrap(*args, **kwargs):
     started_at = time.time()
     result = func(*args, **kwargs)
-    print('\t%s comsumed %.1fs' % (func.__name__, time.time() - started_at))
+    print('\t%s comsumed %.4fs' % (func.__name__, time.time() - started_at))
     return result
   return wrap
 

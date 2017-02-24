@@ -81,3 +81,16 @@ def background_motion(frames, intermediate = None):
       np.prod(frames[0].shape[:2]) * 0.001, 
       np.prod(frames[0].shape[:2]) * 0.3)
   return flows, masks
+
+
+def get_optical_flow(frames, intermediate = None):
+  """
+  masks: a list of (n, mask), where (mask == 0) is the background, 
+        and (0 < mask <= n) is the outliers (moving region).
+  """
+  if intermediate is None:
+    flows = extract_optflow(frames)
+  else:
+    with h5py.File(intermediate, 'r') as fin:
+      flows = list(fin['/flows'][:].astype(np.float32))
+  return flows

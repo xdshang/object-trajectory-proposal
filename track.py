@@ -43,6 +43,7 @@ class Track(object):
     return s * self.length()
   
   def predict(self, bbox, reverse = False):
+    bbox = tuple(bbox)
     if reverse:
       self.rois.appendleft(bbox)
       self.scores.appendleft(self.scores[0])
@@ -214,9 +215,44 @@ def tracking_by_optflow_v2(curr_bbox, flow):
   return cmin, rmin, w, h
 
 
+def tracking_by_optflow_v3(bboxes, flow, inner_scale = 0.5):
+  if bboxes.shape[0] == 0:
+    return bboxes
+  # precompute cumulative summation of optical flow
+  csflow_col = np.cumsum(flow[:, :, 0], axis = 0)
+  csflow_row = np.cumsum(flow[:, :, 1], axis = 1)
+  # compute offsets of 4 edges of inner bounding boxes
+  l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5) - 1
+  r = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
+  t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5) - 1
+  b = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
+  l = np.around(l).astype(np.int32)
+  r = np.around(r).astype(np.int32)
+  t = np.around(t).astype(np.int32)
+  b = np.around(b).astype(np.int32)
+  np.clip(l, 0, flow.shape[1] - 1, out = l)
+  np.clip(r, 0, flow.shape[1] - 1, out = r)
+  np.clip(t, 0, flow.shape[0] - 1, out = t)
+  np.clip(b, 0, flow.shape[0] - 1, out = b)
+  # ensure no divide by zero
+  w = np.clip(r - l, 1, flow.shape[1])
+  h = np.clip(b - t, 1, flow.shape[0])
+  l_of = (csflow_col[b, l] - csflow_col[t, l]) / h
+  r_of = (csflow_col[b, r] - csflow_col[t, r]) / h
+  t_of = (csflow_row[t, r] - csflow_row[t, l]) / w
+  b_of = (csflow_row[b, r] - csflow_row[b, l]) / w
+  # linearly interpolate to track original bounding boxes
+  bboxes[:, 0] += l_of * 1.5 - r_of * 0.5
+  bboxes[:, 1] += t_of * 1.5 - b_of * 0.5
+  bboxes[:, 2] += (r_of - l_of) * 2.
+  bboxes[:, 3] += (b_of - t_of) * 2.
+
+  return bboxes
+
+
 if __name__ == '__main__':
   import sys
-  from background import background_motion
+  from background import background_motion, get_optical_flow
   from utils import *
 
   working_root = '../'
@@ -226,25 +262,27 @@ if __name__ == '__main__':
       'snippets', '%s.mp4' % vind))
   frames = resize_frames(frames, 240)
   # load optical flows
-  flows, masks = background_motion(frames, os.path.join(working_root, 
+  # flows, masks = background_motion(frames, os.path.join(working_root, 
+  #     'intermediate', '%s.h5' % vind))
+  flows = get_optical_flow(frames, os.path.join(working_root, 
       'intermediate', '%s.h5' % vind))
   h, w = flows[0].shape[0], flows[0].shape[1]
 
   bbox_init = [(190.0, 40, 80, 80), (180., 20, 90, 100)]
   # bbox_init = [(200., 100, 65, 40), (100.0, 140, 40, 20)]
-  tracks = []
-  for binit in bbox_init:
-    track = Track(0, binit)
-    for i in range(len(flows)):
-      # masked_flow = flows[i] * (masks[i][1] == 0)[:, :, None]
-      bbox = tracking_by_optflow_v2(track.tail(), flows[i])
+  tracks = [Track(0, binit) for binit in bbox_init]
+  for fid in range(len(flows)):
+    bboxes = np.asarray([track.tail() for track in tracks], dtype = np.float32)
+    # masked_flow = flows[i] * (masks[i][1] == 0)[:, :, None]
+    bboxes = tracking_by_optflow_v3(bboxes, flows[fid])
+    for i, track in enumerate(tracks):
+      bbox = truncate_bbox(bboxes[i], frames[0].shape[0], frames[0].shape[1])
       track.predict(bbox)
-    tracks.append(track)
 
   colors = get_colors()
   for i in range(len(frames)):
     for j in range(len(tracks)):
       frames[i] = draw_tracks(i, frames, [tracks[j]], 
           color = colors[j % len(colors)])
-  create_video(vind, frames, fps, 
+  create_video(os.path.join('visualization', vind), frames, fps, 
       (frames[0].shape[1], frames[0].shape[0]), True)
