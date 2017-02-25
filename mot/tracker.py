@@ -55,26 +55,31 @@ def tracking_by_optflow_v3(bboxes, flow, inner_scale = 0.5):
   # precompute cumulative summation of optical flow
   csflow_col = np.insert(flow[:, :, 0], 0, 0, axis = 0).cumsum(axis = 0)
   csflow_row = np.insert(flow[:, :, 1], 0, 0, axis = 1).cumsum(axis = 1)
-  # compute offsets of 4 edges of inner bounding boxes
-  l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5)
-  r = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
-  t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5)
-  b = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
-  l = np.around(l).astype(np.int32)
-  r = np.around(r).astype(np.int32)
-  t = np.around(t).astype(np.int32)
-  b = np.around(b).astype(np.int32)
-  np.clip(l, 0, flow.shape[1], out = l)
-  np.clip(r, 0, flow.shape[1], out = r)
-  np.clip(t, 0, flow.shape[0], out = t)
-  np.clip(b, 0, flow.shape[0], out = b)
+  # localize coordinates of inner edges
+  csl = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5)
+  csr = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
+  cst = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5)
+  csb = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
+  csl = np.around(csl).astype(np.int32)
+  csr = np.around(csr).astype(np.int32)
+  cst = np.around(cst).astype(np.int32)
+  csb = np.around(csb).astype(np.int32)
+  np.clip(csl, 0, flow.shape[1] - 1, out = csl)
+  np.clip(csr, 1, flow.shape[1], out = csr)
+  np.clip(cst, 0, flow.shape[0] - 1, out = cst)
+  np.clip(csb, 1, flow.shape[0], out = csb)
+  l = csl
+  r = csr - 1
+  t = cst
+  b = csb - 1
   # ensure no divide by zero
-  w = np.clip(r - l, 1, flow.shape[1])
-  h = np.clip(b - t, 1, flow.shape[0])
-  l_of = (csflow_col[b, l] - csflow_col[t, l]) / h
-  r_of = (csflow_col[b, r] - csflow_col[t, r]) / h
-  t_of = (csflow_row[t, r] - csflow_row[t, l]) / w
-  b_of = (csflow_row[b, r] - csflow_row[b, l]) / w
+  w = np.clip(csr - csl, 1, flow.shape[1])
+  h = np.clip(csb - cst, 1, flow.shape[0])
+  # compute offsets of 4 edges of inner bounding boxes
+  l_of = (csflow_col[csb, l] - csflow_col[cst, l]) / h
+  r_of = (csflow_col[csb, r] - csflow_col[cst, r]) / h
+  t_of = (csflow_row[t, csr] - csflow_row[t, csl]) / w
+  b_of = (csflow_row[b, csr] - csflow_row[b, csl]) / w
   # linearly interpolate to track original bounding boxes
   bboxes[:, 0] += l_of * 1.5 - r_of * 0.5
   bboxes[:, 1] += t_of * 1.5 - b_of * 0.5
