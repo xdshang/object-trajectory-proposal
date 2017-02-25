@@ -1,10 +1,11 @@
 import argparse
 import pickle
 from IPython import embed
-from utils import *
-from evaluate import *
-from obj_traj_proposal import ObjTrajProposal, ObjTrajProposalV2
 
+from mot.utils import *
+from mot.models import MSST, EBT
+
+from evaluate import *
 
 if __name__ == '__main__':
 
@@ -38,7 +39,7 @@ if __name__ == '__main__':
         tracks = data['tracks']
         scale = data['scale']
     else:
-      otp = ObjTrajProposalV2(vind, working_root = working_root)
+      otp = MSST(vind, working_root = working_root)
       tracks = otp.generate(verbose = 20)
       scale = otp.get_working_scale()
       with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:

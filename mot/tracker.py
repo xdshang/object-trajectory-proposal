@@ -1,5 +1,6 @@
 import numpy as np
-from boundingbox import truncate_bbox, round_bbox
+
+from .boundingbox import truncate_bbox, round_bbox
 
 
 def tracking_by_optflow(curr_bbox, flow):
@@ -81,43 +82,3 @@ def tracking_by_optflow_v3(bboxes, flow, inner_scale = 0.5):
   bboxes[:, 3] += (b_of - t_of) * 2.
 
   return bboxes
-
-
-if __name__ == '__main__':
-  import sys
-  from trajectory import Trajectory
-  from background import background_motion, get_optical_flow
-  from utils import *
-
-  working_root = '../'
-  vind = sys.argv[1]
-  # load video frames
-  frames, fps, _ = extract_frames(os.path.join(working_root, 
-      'snippets', '%s.mp4' % vind))
-  frames = resize_frames(frames, 240)
-  # load optical flows
-  # flows, masks = background_motion(frames, os.path.join(working_root, 
-  #     'intermediate', '%s.h5' % vind))
-  flows = get_optical_flow(frames, os.path.join(working_root, 
-      'intermediate', '%s.h5' % vind))
-  h, w = flows[0].shape[0], flows[0].shape[1]
-
-  bbox_init = draw_bboxes_on_image(frames[0])
-  print('Tracking bounding boxes:', bbox_init)
-
-  tracks = [Trajectory(0, binit) for binit in bbox_init]
-  for fid in range(len(flows)):
-    bboxes = np.asarray([track.tail() for track in tracks], dtype = np.float32)
-    # masked_flow = flows[i] * (masks[i][1] == 0)[:, :, None]
-    bboxes = tracking_by_optflow_v3(bboxes, flows[fid])
-    for i, track in enumerate(tracks):
-      bbox = truncate_bbox(bboxes[i], frames[0].shape[0], frames[0].shape[1])
-      track.predict(bbox)
-
-  colors = get_colors()
-  for i in range(len(frames)):
-    for j in range(len(tracks)):
-      frames[i] = draw_tracks(i, frames, [tracks[j]], 
-          color = colors[j % len(colors)])
-  create_video(os.path.join('visualization', vind), frames, fps, 
-      (frames[0].shape[1], frames[0].shape[0]), True)

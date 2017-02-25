@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
 from collections import deque
-from boundingbox import truncate_bbox, round_bbox
-from tracker import tracking_by_optflow
+
+from .boundingbox import truncate_bbox, round_bbox
+from .tracker import tracking_by_optflow
 
 
 class Trajectory(object):
