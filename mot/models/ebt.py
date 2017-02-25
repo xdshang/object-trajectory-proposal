@@ -56,7 +56,7 @@ class EBT(MOT):
         initial_tracks.add(Trajectory(fid, bbox, score))
 
   # @profile
-  def associating(self, initial_tracks, active_tracks, act_len = 1):
+  def associating(self, initial_tracks, active_tracks, act_len = 5):
     """
     Associate legal initial_tracks with active_tracks
     """
@@ -80,11 +80,9 @@ class EBT(MOT):
       for i, track in enumerate(active_tracks):
         max_ind = max_inds[i]
         max_iou = iou[i, max_ind]
-        if max_iou > 0.5:
+        if max_iou > 0.5 * act_len:
           score = track.get_score()
           if score > matches[max_ind][0]:
-            if matches[max_ind][1]:
-              pass
             matches[max_ind][0] = score
             matches[max_ind][1] = track
             continue

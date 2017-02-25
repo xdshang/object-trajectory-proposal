@@ -124,8 +124,6 @@ class MSST(MOT):
           if max_iou > 0.5:
             score = track.get_score()
             if score > matches[max_ind][0]:
-              if matches[max_ind][1]:
-                pass
               matches[max_ind][0] = score
               matches[max_ind][1] = track
               continue
