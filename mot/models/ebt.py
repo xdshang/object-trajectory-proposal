@@ -46,3 +46,66 @@ class EBT(MOT):
       track.predict(bboxes[i])
 
     return set()
+
+  def detecting(self, fid, initial_tracks):
+    """
+    Detect new bboxes from Edge Boxes
+    """
+    for i in range(self.bbs[fid][0].shape[0]):
+      bbox = self.bbs[fid][0][i, :4]
+      score = self.bbs[fid][0][i, 4]
+      if self.bbox_filter(bbox):
+        initial_tracks.add(Trajectory(fid, bbox, score, 's'))
+
+  # @profile
+  def associating(self, initial_tracks, active_tracks, act_len = 1):
+    """
+    Associate legal initial_tracks with active_tracks
+    """
+    stopped_tracks = set()
+
+    for ttype in ['m', 's']:
+      legal_init = [track for track in initial_tracks 
+          if track.length() >= act_len and track.get_type() == ttype]
+      initial_tracks.difference_update(legal_init)
+
+      bboxes = np.asarray([track.head() for track in legal_init])
+      matches = [[-1000., None] for i in range(bboxes.shape[0])]
+
+      stopped_tracks = set()
+      for track in active_tracks:
+        track_type = track.get_type()
+        if track_type == ttype:
+          bbox = track.tail()
+          max_ind, max_iou = find_max_iou(bbox, bboxes)
+          if max_iou > 0.5:
+            score = track.get_score()
+            if score > matches[max_ind][0]:
+              if matches[max_ind][1]:
+                pass
+              matches[max_ind][0] = score
+              matches[max_ind][1] = track
+              continue
+          if track_type == 's':
+            stopped_tracks.add(track)
+
+      # update matches
+      for i, (score, track) in enumerate(matches):
+        if track:
+          track.update(legal_init[i])
+        else:
+          active_tracks.add(legal_init[i])
+
+    active_tracks.difference_update(stopped_tracks)
+    return stopped_tracks
+
+  def pruning(self, stopped_tracks, complete_tracks):
+    for track in stopped_tracks:
+      push_heap(complete_tracks, (track.get_score(), track), 3000)
+
+  def generate(self, nreturn = 3000, verbose = 0):
+    complete_tracks = super().generate(verbose = verbose)
+    return_tracks = [track for s, track in sorted(complete_tracks, 
+        key = lambda x: x[0], reverse = True)[:nreturn]]
+
+    return return_tracks
