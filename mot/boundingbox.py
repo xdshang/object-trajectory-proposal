@@ -52,6 +52,7 @@ def compute_iou(bbox1, bbox2):
   else:
     return 0.
 
+
 def find_max_iou(bbox, bboxes):
   bbox = np.asarray(bbox)
   bboxes = np.asarray(bboxes)
@@ -69,3 +70,59 @@ def find_max_iou(bbox, bboxes):
   else:
     max_ind = np.argmax(ious)
     return intersect_inds[max_ind], ious[max_ind]
+
+
+def ciou(bboxes1, bboxes2):
+  """
+  Compute IoUs between two sets of bounding boxes
+  Input: np.array((n, 4), np.float32), np.array((m, 4), np.float32)
+  Output: np.array((n, m), np.float32)
+  """
+  cmin = np.maximum.outer(bboxes1[:, 0], bboxes2[:, 0])
+  cmax = np.minimum.outer(bboxes1[:, 0] + bboxes1[:, 2],
+                          bboxes2[:, 0] + bboxes2[:, 2])
+  w = cmax - cmin
+  del cmax, cmin
+  w.clip(min = 0, out = w)
+
+  rmin = np.maximum.outer(bboxes1[:, 1], bboxes2[:, 1])
+  rmax = np.minimum.outer(bboxes1[:, 1] + bboxes1[:, 3],
+                          bboxes2[:, 1] + bboxes2[:, 3])
+  h = rmax - rmin
+  del rmax, rmin
+  h.clip(min = 0, out = h)
+
+  iou = w
+  np.multiply(w, h, out = iou)
+  del w, h
+
+  a1 = np.prod(bboxes1[:, 2:], axis = 1)
+  a2 = np.prod(bboxes2[:, 2:], axis = 1)
+  np.divide(iou, np.add.outer(a1, a2) - iou, out = iou)
+
+  return iou
+
+
+# @jit('float32[:, :](float32[:, :], float32[:, :])')
+# def ciou_v2(bboxes1, bboxes2):
+#   """
+#   Compute IoUs between two sets of bounding boxes
+#   Input: np.array((n, 4), np.float32), np.array((m, 4), np.float32)
+#   Output: np.array((n, m), np.float32)
+#   """
+#   n = bboxes1.shape[0]
+#   m = bboxes2.shape[0]
+#   iou = np.zeros((n, m), dtype = np.float32)
+
+#   for i in range(n):
+#     for j in range(m):
+#       minp = np.maximum(bboxes1[i, :2], bboxes2[j, :2])
+#       maxp = np.minimum(bboxes1[i, :2] + bboxes1[i, 2:],
+#           bboxes2[j, :2] + bboxes2[j, 2:])
+#       delta = maxp - minp
+#       if delta[0] > 0 and delta[1] > 0:
+#         intersect = np.prod(delta)
+#         iou[i, j] = intersect / (np.prod(bboxes1[i, 2:]) + \
+#             np.prod(bboxes2[j, 2:]) - intersect)
+
+#   return iou

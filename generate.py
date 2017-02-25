@@ -39,7 +39,7 @@ if __name__ == '__main__':
         tracks = data['tracks']
         scale = data['scale']
     else:
-      otp = MSST(vind, working_root = working_root)
+      otp = EBT(vind, working_root = working_root)
       tracks = otp.generate(verbose = 20)
       scale = otp.get_working_scale()
       with open(os.path.join(saving_root, 'our_results', '%s.pkl' % vind), 'wb') as fout:

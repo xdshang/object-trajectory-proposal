@@ -20,6 +20,7 @@ class Trajectory(object):
     return False
 
   def __getstate__(self):
+    # Ensure the object is picklalbe
     self.tracker = None
     return self.__dict__
 
@@ -29,7 +30,17 @@ class Trajectory(object):
   def tail(self):
     return self.rois[-1]
 
+  def at(self, i):
+    """
+    Return the i_th bounding box
+    Support fancy indexing
+    """
+    return self.rois[i]
+
   def bbox_at(self, p):
+    """
+    Return the bounding box at frame p
+    """
     return self.rois[p - self.pstart]
 
   def score_at(self, p):

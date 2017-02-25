@@ -7,8 +7,8 @@ from scipy import io as sio
 from ..trajectory import Trajectory
 from ..tracker import tracking_by_optflow_v3
 from ..background import get_optical_flow
+from ..boundingbox import ciou
 from ..utils import *
-from ..boundingbox import *
 
 from .mot import MOT
 
@@ -29,8 +29,6 @@ class EBT(MOT):
     for i in range(self.bbs.shape[0]):
       self.bbs[i][0][:, :2] -= 1
       self.bbs[i][0][:, :4] *= self.working_scale
-    print('\tname: %s fps: %d size: %dx%dx%d' % \
-        (vind, fps, len(self.frames), self.fsize[1], self.fsize[0]))
 
   # @profile
   def tracking(self, fid, tracks, inner_scale = 0.5):
@@ -55,7 +53,7 @@ class EBT(MOT):
       bbox = self.bbs[fid][0][i, :4]
       score = self.bbs[fid][0][i, 4]
       if self.bbox_filter(bbox):
-        initial_tracks.add(Trajectory(fid, bbox, score, 's'))
+        initial_tracks.add(Trajectory(fid, bbox, score))
 
   # @profile
   def associating(self, initial_tracks, active_tracks, act_len = 1):
@@ -63,39 +61,41 @@ class EBT(MOT):
     Associate legal initial_tracks with active_tracks
     """
     stopped_tracks = set()
+    # get tracks with length of act_len to associate with the active tracks
+    tracklet = [track for track in initial_tracks if track.length() >= act_len]
+    # initialize IoU matrix
+    iou = np.zeros((len(active_tracks), len(tracklet)), dtype = np.float32)
+    matches = [[-1000., None] for i in range(len(tracklet))]
+    # compute IoU in 3D
+    if iou.size > 0:
+      for i in range(act_len):
+        bboxes1 = np.asarray([track.at(i - act_len) for track in active_tracks], 
+            dtype = np.float32)
+        bboxes2 = np.asarray([track.at(i) for track in tracklet], 
+            dtype = np.float32)
+        a = ciou(bboxes1, bboxes2)
+        iou += a
+      # perform matching
+      max_inds = np.argmax(iou, axis = 1)
+      for i, track in enumerate(active_tracks):
+        max_ind = max_inds[i]
+        max_iou = iou[i, max_ind]
+        if max_iou > 0.5:
+          score = track.get_score()
+          if score > matches[max_ind][0]:
+            if matches[max_ind][1]:
+              pass
+            matches[max_ind][0] = score
+            matches[max_ind][1] = track
+            continue
+        stopped_tracks.add(track)
+    for i, (score, track) in enumerate(matches):
+      if track:
+        track.update(tracklet[i])
+      else:
+        active_tracks.add(tracklet[i])
 
-    for ttype in ['m', 's']:
-      legal_init = [track for track in initial_tracks 
-          if track.length() >= act_len and track.get_type() == ttype]
-      initial_tracks.difference_update(legal_init)
-
-      bboxes = np.asarray([track.head() for track in legal_init])
-      matches = [[-1000., None] for i in range(bboxes.shape[0])]
-
-      stopped_tracks = set()
-      for track in active_tracks:
-        track_type = track.get_type()
-        if track_type == ttype:
-          bbox = track.tail()
-          max_ind, max_iou = find_max_iou(bbox, bboxes)
-          if max_iou > 0.5:
-            score = track.get_score()
-            if score > matches[max_ind][0]:
-              if matches[max_ind][1]:
-                pass
-              matches[max_ind][0] = score
-              matches[max_ind][1] = track
-              continue
-          if track_type == 's':
-            stopped_tracks.add(track)
-
-      # update matches
-      for i, (score, track) in enumerate(matches):
-        if track:
-          track.update(legal_init[i])
-        else:
-          active_tracks.add(legal_init[i])
-
+    initial_tracks.difference_update(tracklet)
     active_tracks.difference_update(stopped_tracks)
     return stopped_tracks
 
