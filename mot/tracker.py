@@ -53,21 +53,21 @@ def tracking_by_optflow_v3(bboxes, flow, inner_scale = 0.5):
   if bboxes.shape[0] == 0:
     return bboxes
   # precompute cumulative summation of optical flow
-  csflow_col = np.cumsum(flow[:, :, 0], axis = 0)
-  csflow_row = np.cumsum(flow[:, :, 1], axis = 1)
+  csflow_col = np.insert(flow[:, :, 0], 0, 0, axis = 0).cumsum(axis = 0)
+  csflow_row = np.insert(flow[:, :, 1], 0, 0, axis = 1).cumsum(axis = 1)
   # compute offsets of 4 edges of inner bounding boxes
-  l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5) - 1
+  l = bboxes[:, 0] + bboxes[:, 2] * (0.5 - inner_scale * 0.5)
   r = bboxes[:, 0] + bboxes[:, 2] * (0.5 + inner_scale * 0.5)
-  t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5) - 1
+  t = bboxes[:, 1] + bboxes[:, 3] * (0.5 - inner_scale * 0.5)
   b = bboxes[:, 1] + bboxes[:, 3] * (0.5 + inner_scale * 0.5)
   l = np.around(l).astype(np.int32)
   r = np.around(r).astype(np.int32)
   t = np.around(t).astype(np.int32)
   b = np.around(b).astype(np.int32)
-  np.clip(l, 0, flow.shape[1] - 1, out = l)
-  np.clip(r, 0, flow.shape[1] - 1, out = r)
-  np.clip(t, 0, flow.shape[0] - 1, out = t)
-  np.clip(b, 0, flow.shape[0] - 1, out = b)
+  np.clip(l, 0, flow.shape[1], out = l)
+  np.clip(r, 0, flow.shape[1], out = r)
+  np.clip(t, 0, flow.shape[0], out = t)
+  np.clip(b, 0, flow.shape[0], out = b)
   # ensure no divide by zero
   w = np.clip(r - l, 1, flow.shape[1])
   h = np.clip(b - t, 1, flow.shape[0])
