@@ -53,8 +53,9 @@ class Trajectory(object):
     return self.ttype
 
   def get_score(self):
-    s = np.median(self.scores)
-    return s * self.length()
+    # s = np.median(self.scores)
+    # return s * self.length()
+    return np.sum(self.scores)
   
   def predict(self, bbox, reverse = False):
     if not bbox is None:
