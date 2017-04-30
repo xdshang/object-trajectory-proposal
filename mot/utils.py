@@ -1,4 +1,5 @@
 import cv2
+import skvideo.io as skvio
 import numpy as np
 import heapq
 import time
@@ -31,16 +32,11 @@ def profile(func):
 
 
 def extract_frames(fname):
-  cap = cv2.VideoCapture(fname)
-  fps = cap.get(cv2.CAP_PROP_FPS)
-  size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+  meta = skvio.ffprobe(fname)
+  fps = int(meta['video']['@r_frame_rate'].split('/')[0])
+  size = (int(meta['video']['@width']), int(meta['video']['@height']))
   assert fps > 0, 'Broken video %s' % fname
-  frames = []
-  rval, frame = cap.read()
-  while rval:
-    frames.append(frame)
-    rval, frame = cap.read()
-  cap.release()
+  frames = list(skvio.vread(fname))
   return frames, fps, size
 
 

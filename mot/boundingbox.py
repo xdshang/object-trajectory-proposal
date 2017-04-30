@@ -126,3 +126,53 @@ def ciou(bboxes1, bboxes2):
 #             np.prod(bboxes2[j, 2:]) - intersect)
 
 #   return iou
+
+def _intersect(bboxes1, bboxes2):
+  """
+  bboxes: t x n x 4
+  """
+  assert bboxes1.shape[0] == bboxes2.shape[0]
+  t = bboxes1.shape[0]
+  inters = np.zeros((bboxes1.shape[1], bboxes2.shape[1]), dtype = np.float32)
+  _min = np.empty((bboxes1.shape[1], bboxes2.shape[1]), dtype = np.float32)
+  _max = np.empty((bboxes1.shape[1], bboxes2.shape[1]), dtype = np.float32)
+  w = np.empty((bboxes1.shape[1], bboxes2.shape[1]), dtype = np.float32)
+  h = np.empty((bboxes1.shape[1], bboxes2.shape[1]), dtype = np.float32)
+  for i in range(t):
+    np.maximum.outer(bboxes1[i, :, 0], bboxes2[i, :, 0], out = _min)
+    np.minimum.outer(bboxes1[i, :, 0] + bboxes1[i, :, 2], 
+        bboxes2[i, :, 0] + bboxes2[i, :, 2], out = _max)
+    np.subtract(_max, _min, out = w)
+    w.clip(min = 0, out = w)
+    np.maximum.outer(bboxes1[i, :, 1], bboxes2[i, :, 1], out = _min)
+    np.minimum.outer(bboxes1[i, :, 1] + bboxes1[i, :, 3], 
+        bboxes2[i, :, 1] + bboxes2[i, :, 3], out = _max)
+    np.subtract(_max, _min, out = h)
+    h.clip(min = 0, out = h)
+    np.multiply(w, h, out = w)
+    inters += w
+  return inters
+
+def _union(bboxes1, bboxes2):
+  if id(bboxes1) == id(bboxes2):
+    w = bboxes1[:, :, 2]
+    h = bboxes1[:, :, 3]
+    area = np.sum(w * h, axis = 0)
+    unions = np.add.outer(area, area)
+  else:
+    w = bboxes1[:, :, 2]
+    h = bboxes1[:, :, 3]
+    area1 = np.sum(w * h, axis = 0)
+    w = bboxes2[:, :, 2]
+    h = bboxes2[:, :, 3]
+    area2 = np.sum(w * h, axis = 0)
+    unions = np.add.outer(area1, area2)
+  return unions
+
+def viou(bboxes1, bboxes2):
+  # bboxes: t x n x 4
+  iou = _intersect(bboxes1, bboxes2)
+  union = _union(bboxes1, bboxes2)
+  np.subtract(union, iou, out = union)
+  np.divide(iou, union, out = iou)
+  return iou
