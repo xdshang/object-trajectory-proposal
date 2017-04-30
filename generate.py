@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
   assert os.path.exists(os.path.join(saving_root, 'our_results')), \
       'Directory for results of ours not found'
-  if 'vid' in args:
+  if args.vid is not None:
     vinds = [args.vid]
   else:
     vinds = get_vinds(os.path.join(working_root, 'datalist.txt'), args.bsize, args.bid)
