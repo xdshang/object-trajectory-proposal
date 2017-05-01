@@ -10,7 +10,10 @@ import h5py
 from mot.utils import *
 
 class LDOF():
-  """docstring for LDOF"""
+  """
+  LDOF: https://lmb.informatik.uni-freiburg.de/resources/software.php
+  flo format: http://vision.middlebury.edu/flow/code/flow-code/README.txt
+  """
   def __init__(self):
     exec_file = '/home/xdshang/workspace/optflow/ldof/ldof'
     assert os.path.exists(exec_file), 'ldof binary not found.'
