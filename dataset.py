@@ -29,7 +29,7 @@ class Dataset():
   def get_index(self, batch_size = 1, batch_id = 1):
     vinds = [[vid, None] for vid in self.index]
 
-    if batch_size * 10 < len(vinds):
+    if batch_size > 1 and batch_size * 10 < len(vinds):
       print('Computing division for clusters...')
       for ele in vinds:
         anno = self.get_annotation(ele[0])

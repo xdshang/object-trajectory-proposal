@@ -24,26 +24,24 @@ class OpticalFlow():
 
   def extract_optical_flow(self, vid):
     path = pjoin(self.save_path, '{}.h5'.format(vid))
+
     if pexists(path):
-      with h5py.File(path, 'r') as fin:
-        optflows = fin['flows'][:].astype(np.float32)
-      # ***********************
-      with h5py.File(path, 'w') as fout:
-        fout.create_dataset('flows', 
-            data = np.asarray(optflows, dtype = np.float16),
-            compression = 'gzip', compression_opts = 9)
-      # ***********************
-      optflows = list(optflows)
-    else:
-      frames = self.dataset.get_frames(vid)
-      optflows = []
-      for i in range(len(frames) - 1):
-        optflow = self.compute_optical_flow(frames[i], frames[i + 1])
-        optflows.append(optflow)
-      with h5py.File(path, 'w') as fout:
-        fout.create_dataset('flows', 
-            data = np.asarray(optflows, dtype = np.float16),
-            compression = 'gzip', compression_opts = 9)
+      try:
+        with h5py.File(path, 'r') as fin:
+          optflows = fin['flows'][:].astype(np.float32)
+        return optflows
+      except Exception as err:
+        print(err)
+
+    frames = self.dataset.get_frames(vid)
+    optflows = []
+    for i in range(len(frames) - 1):
+      optflow = self.compute_optical_flow(frames[i], frames[i + 1])
+      optflows.append(optflow)
+    with h5py.File(path, 'w') as fout:
+      fout.create_dataset('flows', 
+          data = np.asarray(optflows, dtype = np.float16),
+          compression = 'gzip', compression_opts = 9)
     return optflows
 
   def compute_optical_flow(self, img1, img2):
@@ -88,16 +86,19 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser(description = 'Compute optical flows')
   parser.add_argument('--method', default = 'LDOF', help = 'method: [LDOF]')
-  parser.add_argument('--bsize', type = int, help = 'batch size')
-  parser.add_argument('--bid', type = int, help = 'batch id')
+  parser.add_argument('--vid', help = 'video index to process')
+  # parser.add_argument('--bsize', type = int, help = 'batch size')
+  # parser.add_argument('--bid', type = int, help = 'batch id')
   args = parser.parse_args()
 
   dataset = get_dataset('ilsvrc2016-vid')
-  index = dataset.get_index(args.bsize, args.bid)
+  # index = dataset.get_index(args.bsize, args.bid)
   method = eval(args.method)(dataset = dataset)
 
-  for i, vid in enumerate(index):
-    print('Processing {}th video {}...'.format(i, vid))
-    optflows = method.extract_optical_flow(vid)
+  # for i, vid in enumerate(index):
+  #   print('Processing {}th video {}...'.format(i, vid))
+  #   optflows = method.extract_optical_flow(vid)
+  print('Processing video {}...'.format(args.vid))
+  optflows = method.extract_optical_flow(args.vid)
 
   # embed()
