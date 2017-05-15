@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import skimage.io as skio
 from IPython import embed
 
-from mot.background import background_motion, get_optical_flow
-from mot.boundingbox import *
-from mot.utils import *
-from mot.trajectory import Trajectory, StaticTrack
-from mot.tracker import tracking_by_optflow_v3
+from otp.background import background_motion, get_optical_flow
+from otp.boundingbox import *
+from otp.utils import *
+from otp.trajectory import Trajectory, StaticTrack
+from otp.tracker import tracking_by_optflow_v3
 
 
 colors = get_colors()

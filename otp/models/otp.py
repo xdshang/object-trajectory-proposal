@@ -4,9 +4,9 @@ from ..utils import extract_frames, resize_frames
 from ..boundingbox import BBoxFilter
 
 
-class MOT():
+class OTP():
   """
-  General Framework for Multi-Object Tracking (MOT)
+  General Framework for Object Trajectory Proposal (OTP)
   """
   def __init__(self, vind, working_root, vsize = 240):
     frames, fps, orig_size = extract_frames(os.path.join(working_root, 

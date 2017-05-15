@@ -8,10 +8,6 @@ import tempfile
 import numpy as np
 import skimage.io as imgio
 import h5py
-from IPython import embed
-
-from mot.utils import *
-from dataset import get_dataset
 
 class MotionField():
 
@@ -29,15 +25,15 @@ class MotionField():
       try:
         with h5py.File(path, 'r') as fin:
           motions = fin['flows'][:].astype(np.float32)
-        return motions
+        return list(motions)
       except Exception as err:
         print(err)
 
     frames = self.dataset.get_frames(vid)
     motions = []
     for i in range(len(frames) - 1):
-      optflow = self.compute_motion_field(frames[i], frames[i + 1])
-      motions.append(optflow)
+      motion = self.compute_motion_field(frames[i], frames[i + 1])
+      motions.append(motion)
     with h5py.File(path, 'w') as fout:
       fout.create_dataset('flows', 
           data = np.asarray(motions, dtype = np.float16),
@@ -82,10 +78,28 @@ class LDOF(MotionField):
     return optflow
 
 
+class DeepFlow(MotionField):
+  """
+  DeepFlow implemented by OpenCV
+  """
+  def __init__(self, **kwargs):
+    super(DeepFlow, self).__init__(self.__class__.__name__.lower(), **kwargs)
+    import cv2
+    self.model = cv2.optflow.createOptFlow_DeepFlow()
+
+  def compute_motion_field(self, img1, img2):
+    gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    optflow = self.model.calc(gray1, gray2, None)
+    return optflow
+
+
 if __name__ == '__main__':
+  from dataset import get_dataset
 
   parser = argparse.ArgumentParser(description = 'Compute motion field')
-  parser.add_argument('--method', default = 'LDOF', help = 'method: [LDOF]')
+  parser.add_argument('--method', default = 'LDOF',
+      choices = ['LDOF', 'DeepFlow'], help = 'Method to extract motion field')
   parser.add_argument('--dname', choices = ['ilsvrc2016-vid'],
       required = True, help = 'Dataset name')
   parser.add_argument('--vid', required = True, help = 'video index to process')
@@ -96,5 +110,3 @@ if __name__ == '__main__':
 
   print('Processing video {}...'.format(args.vid))
   motions = method.extract_motion_field(args.vid)
-
-  # embed()

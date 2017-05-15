@@ -1,7 +1,7 @@
 import numpy as np
 import xml.etree.ElementTree as ET
-from mot.trajectory import Trajectory
-from mot.boundingbox import compute_iou
+from otp.trajectory import Trajectory
+from otp.boundingbox import compute_iou
 
 def get_gt_tracks(fname, scale = 1.):
   tree = ET.parse(fname)

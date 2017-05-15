@@ -10,10 +10,10 @@ from ..background import background_motion
 from ..utils import *
 from ..boundingbox import *
 
-from .mot import MOT
+from .otp import OTP
 
 
-class MSST(MOT):
+class MSST(OTP):
   """
   Tracking proposals by moving and static object separation (ICME2017 work)
   """

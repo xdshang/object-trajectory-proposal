@@ -10,10 +10,10 @@ from ..background import get_optical_flow
 from ..boundingbox import ciou, viou
 from ..utils import *
 
-from .mot import MOT
+from .otp import OTP
 
 
-class EBT(MOT):
+class EBT(OTP):
   """
   Edge Boxes Tracking
   """

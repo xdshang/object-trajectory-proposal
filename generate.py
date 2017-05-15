@@ -2,8 +2,8 @@ import argparse
 import pickle
 from IPython import embed
 
-from mot.utils import *
-from mot.models import MSST, EBT
+from otp.utils import *
+from otp.models import MSST, EBT
 
 from evaluate import *
 

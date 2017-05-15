@@ -1,17 +1,5 @@
 import cv2
 import numpy as np
-import h5py
-
-def extract_optflow(frames):
-  flows = []
-  flow_model = cv2.optflow.createOptFlow_DeepFlow()
-  for i in range(len(frames) - 1):
-    gray1 = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY)
-    gray2 = cv2.cvtColor(frames[i + 1], cv2.COLOR_BGR2GRAY)
-    flow = flow_model.calc(gray1, gray2, None)
-    flows.append(flow)
-  return flows
-
 
 def filter_components(components, area_min = 0, area_max = np.inf):
   mask = np.zeros_like(components[1], dtype = np.uint8)
@@ -66,31 +54,29 @@ def generate_moving_mask_v3(frame_lst, flows_lst, var_thres = 1, area_min = 100,
   return Fs, masks
 
 
-def background_motion(frames, intermediate = None):
+def background_motion(frames, motion):
   """
   masks: a list of (n, mask), where (mask == 0) is the background, 
         and (0 < mask <= n) is the outliers (moving region).
   """
-  if intermediate is None:
-    flows = extract_optflow(frames)
-  else:
-    with h5py.File(intermediate, 'r') as fin:
-      flows = list(fin['/flows'][:].astype(np.float32))
-  # Fs, masks = generate_moving_mask_v2(flows, 1, 10, np.prod(frames[0].shape[:2]) * 0.2)
-  Fs, masks = generate_moving_mask_v3(frames, flows, 1, 
+  # Fs, masks = generate_moving_mask_v2(motion, 1, 10, np.prod(frames[0].shape[:2]) * 0.2)
+  Fs, masks = generate_moving_mask_v3(frames, motion, 1, 
       np.prod(frames[0].shape[:2]) * 0.001, 
       np.prod(frames[0].shape[:2]) * 0.3)
-  return flows, masks
+  return masks
 
 
-def get_optical_flow(frames, intermediate = None):
-  """
-  masks: a list of (n, mask), where (mask == 0) is the background, 
-        and (0 < mask <= n) is the outliers (moving region).
-  """
-  if intermediate is None:
-    flows = extract_optflow(frames)
-  else:
-    with h5py.File(intermediate, 'r') as fin:
-      flows = list(fin['/flows'][:].astype(np.float32))
-  return flows
+if __name__ == '__main__':
+  from dataset import get_dataset
+  from motion_field import LDOF
+  from IPython import embed
+
+  dataset = get_dataset('ilsvrc2016-vid')
+  ldof = LDOF(dataset = dataset)
+
+  vid = 'ILSVRC2015_train_00508000'
+  frames = dataset.get_frames(vid)
+  motion = ldof.extract_motion_field(vid)
+  masks = background_motion(frames, motion)
+
+  embed()

@@ -5,7 +5,6 @@ from skimage import img_as_ubyte
 import xml.etree.ElementTree as ET
 import random
 import warnings
-from IPython import embed
 
 random.seed(1701)
 
@@ -121,6 +120,7 @@ class Dataset():
 
 
 if __name__ == '__main__':
+  from IPython import embed
   dataset = get_dataset('ilsvrc2016-vid')
   index = dataset.get_index(50, 3)
   embed()
