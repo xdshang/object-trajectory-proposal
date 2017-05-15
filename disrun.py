@@ -67,6 +67,7 @@ class CmdGen():
   '''command generator'''
   def __init__(self, cmd_prototype, dataset_name):
     self.cmd_prototype = cmd_prototype
+    self.dname = dataset_name
     self.dataset = get_dataset(dataset_name).get_index()
 
   def __iter__(self):
@@ -78,7 +79,7 @@ class CmdGen():
       raise StopIteration
     data = self.dataset[self.i]
     # get cmd
-    cmd = self.cmd_prototype.format(data)
+    cmd = self.cmd_prototype.format(self.dname, data)
     cmd = 'qrsh -now no -w n -cwd -noshell /bin/bash -l -c "{}"'.format(cmd)
     self.i += 1
     return cmd
@@ -93,8 +94,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description = 'Distributed running tool')
   parser.add_argument('-c', '--cmd', required = True,
       help = 'Command prototype')
-  parser.add_argument('-d', '--dname', choices = ['ilsvrc2016-vid'],
-      required = True, help = 'Dataset name')
+  parser.add_argument('-d', '--dname', default = 'ilsvrc2016-vid',
+      choices = ['ilsvrc2016-vid'], help = 'Dataset name')
   parser.add_argument('-p', '--parallel', type = int, default = 5,
       help = 'Number of workers running in parallel')
   parser.add_argument('--log_level', default = 'INFO',

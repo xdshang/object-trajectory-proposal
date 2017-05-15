@@ -13,42 +13,42 @@ from IPython import embed
 from mot.utils import *
 from dataset import get_dataset
 
-class OpticalFlow():
+class MotionField():
 
   def __init__(self, method, dataset):
     self.dataset = dataset
     self.method = method
-    self.save_path = pjoin(dataset.get_rpath(), 'optflows', method)
+    self.save_path = pjoin(dataset.get_rpath(), 'motions', method)
     if not pexists(self.save_path):
       os.mkdir(self.save_path)
 
-  def extract_optical_flow(self, vid):
+  def extract_motion_field(self, vid):
     path = pjoin(self.save_path, '{}.h5'.format(vid))
 
     if pexists(path):
       try:
         with h5py.File(path, 'r') as fin:
-          optflows = fin['flows'][:].astype(np.float32)
-        return optflows
+          motions = fin['flows'][:].astype(np.float32)
+        return motions
       except Exception as err:
         print(err)
 
     frames = self.dataset.get_frames(vid)
-    optflows = []
+    motions = []
     for i in range(len(frames) - 1):
-      optflow = self.compute_optical_flow(frames[i], frames[i + 1])
-      optflows.append(optflow)
+      optflow = self.compute_motion_field(frames[i], frames[i + 1])
+      motions.append(optflow)
     with h5py.File(path, 'w') as fout:
       fout.create_dataset('flows', 
-          data = np.asarray(optflows, dtype = np.float16),
+          data = np.asarray(motions, dtype = np.float16),
           compression = 'gzip', compression_opts = 9)
-    return optflows
+    return motions
 
-  def compute_optical_flow(self, img1, img2):
+  def compute_motion_field(self, img1, img2):
     raise NotImplementedError
 
 
-class LDOF(OpticalFlow):
+class LDOF(MotionField):
   """
   LDOF: https://lmb.informatik.uni-freiburg.de/resources/software.php
   flo format: http://vision.middlebury.edu/flow/code/flow-code/README.txt
@@ -72,7 +72,7 @@ class LDOF(OpticalFlow):
           optflow[i, j, 1] = v
     return optflow
 
-  def compute_optical_flow(self, img1, img2):
+  def compute_motion_field(self, img1, img2):
     imgio.imsave(os.path.join(self.tempdir.name, 'img1.ppm'), img1)
     imgio.imsave(os.path.join(self.tempdir.name, 'img2.ppm'), img2)
     subprocess.run(self.cmd.format('img1.ppm', 'img2.ppm'), 
@@ -84,21 +84,17 @@ class LDOF(OpticalFlow):
 
 if __name__ == '__main__':
 
-  parser = argparse.ArgumentParser(description = 'Compute optical flows')
+  parser = argparse.ArgumentParser(description = 'Compute motion field')
   parser.add_argument('--method', default = 'LDOF', help = 'method: [LDOF]')
-  parser.add_argument('--vid', help = 'video index to process')
-  # parser.add_argument('--bsize', type = int, help = 'batch size')
-  # parser.add_argument('--bid', type = int, help = 'batch id')
+  parser.add_argument('--dname', choices = ['ilsvrc2016-vid'],
+      required = True, help = 'Dataset name')
+  parser.add_argument('--vid', required = True, help = 'video index to process')
   args = parser.parse_args()
 
-  dataset = get_dataset('ilsvrc2016-vid')
-  # index = dataset.get_index(args.bsize, args.bid)
+  dataset = get_dataset(args.dname)
   method = eval(args.method)(dataset = dataset)
 
-  # for i, vid in enumerate(index):
-  #   print('Processing {}th video {}...'.format(i, vid))
-  #   optflows = method.extract_optical_flow(vid)
   print('Processing video {}...'.format(args.vid))
-  optflows = method.extract_optical_flow(args.vid)
+  motions = method.extract_motion_field(args.vid)
 
   # embed()

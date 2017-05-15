@@ -9,19 +9,30 @@ from IPython import embed
 
 random.seed(1701)
 
-def get_dataset(name):
-  if name == 'ilsvrc2016-vid':
-    return Dataset('/home/xdshang/dataset/ilsvrc2016-vid')
-  else:
-    raise ValueError('Unknown dataset {}'.format(name))
+_datasets = dict()
 
+def get_dataset(name):
+  print('Getting dataset {}...'.format(name))
+  if not name in _datasets:
+    _datasets[name] = Dataset(name)
+    if len(_datasets.keys()) > 1:
+      print('--WARNING: using multiple datasets')
+  return _datasets[name]
 
 class Dataset():
 
-  def __init__(self, rpath):
-    self.rpath = rpath
+  def __init__(self, name):
+    self.name = name
+    if self.name == 'ilsvrc2016-vid':
+      self.rpath = '/home/xdshang/dataset/ilsvrc2016-vid'
+    else:
+      raise ValueError('Unknown dataset {}'.format(self.name))
+    
     self.index = [line.strip() for line in
         open(pjoin(self.rpath, 'dataset.csv'), 'r')]
+
+  def get_name(self):
+    return self.name
 
   def get_rpath(self):
     return self.rpath
