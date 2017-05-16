@@ -1,47 +1,21 @@
 import subprocess
 import os
-from os.path import join as pjoin
-from os.path import exists as pexists
 import struct
-import argparse
 import tempfile
 import numpy as np
 import skimage.io as imgio
-import h5py
 
-class MotionField():
+_method = dict()
 
-  def __init__(self, method, dataset):
-    self.dataset = dataset
-    self.method = method
-    self.save_path = pjoin(dataset.get_rpath(), 'motions', method)
-    if not pexists(self.save_path):
-      os.mkdir(self.save_path)
-
-  def extract_motion_field(self, vid):
-    path = pjoin(self.save_path, '{}.h5'.format(vid))
-
-    if pexists(path):
-      try:
-        with h5py.File(path, 'r') as fin:
-          motions = fin['flows'][:].astype(np.float32)
-        return list(motions)
-      except Exception as err:
-        print(err)
-
-    frames = self.dataset.get_frames(vid)
-    motions = []
-    for i in range(len(frames) - 1):
-      motion = self.compute_motion_field(frames[i], frames[i + 1])
-      motions.append(motion)
-    with h5py.File(path, 'w') as fout:
-      fout.create_dataset('flows', 
-          data = np.asarray(motions, dtype = np.float16),
-          compression = 'gzip', compression_opts = 9)
-    return motions
-
-  def compute_motion_field(self, img1, img2):
-    raise NotImplementedError
+def get_motion_field_method(name):
+  if not name in _method:
+    if name == 'ldof':
+      _method[name] = LDOF()
+    elif name == 'deepflow':
+      _method[name] = DeepFlow()
+    else:
+      raise ValueError('Unknown name: {}'.format(name))
+  return _method[name].compute_motion_field 
 
 
 class LDOF(MotionField):
@@ -49,8 +23,7 @@ class LDOF(MotionField):
   LDOF: https://lmb.informatik.uni-freiburg.de/resources/software.php
   flo format: http://vision.middlebury.edu/flow/code/flow-code/README.txt
   """
-  def __init__(self, **kwargs):
-    super(LDOF, self).__init__(self.__class__.__name__.lower(), **kwargs)
+  def __init__(self):
     exec_file = '/home/xdshang/workspace/optflow/ldof/ldof'
     assert os.path.exists(exec_file), 'ldof binary not found.'
     self.cmd = exec_file + ' {} {}'
@@ -82,8 +55,7 @@ class DeepFlow(MotionField):
   """
   DeepFlow implemented by OpenCV
   """
-  def __init__(self, **kwargs):
-    super(DeepFlow, self).__init__(self.__class__.__name__.lower(), **kwargs)
+  def __init__(self):
     import cv2
     self.model = cv2.optflow.createOptFlow_DeepFlow()
 
@@ -92,21 +64,3 @@ class DeepFlow(MotionField):
     gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
     optflow = self.model.calc(gray1, gray2, None)
     return optflow
-
-
-if __name__ == '__main__':
-  from dataset import get_dataset
-
-  parser = argparse.ArgumentParser(description = 'Compute motion field')
-  parser.add_argument('--method', default = 'LDOF',
-      choices = ['LDOF', 'DeepFlow'], help = 'Method to extract motion field')
-  parser.add_argument('--dname', choices = ['ilsvrc2016-vid'],
-      required = True, help = 'Dataset name')
-  parser.add_argument('--vid', required = True, help = 'video index to process')
-  args = parser.parse_args()
-
-  dataset = get_dataset(args.dname)
-  method = eval(args.method)(dataset = dataset)
-
-  print('Processing video {}...'.format(args.vid))
-  motions = method.extract_motion_field(args.vid)
